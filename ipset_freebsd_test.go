@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/vishvananda/netlink/nl"
+	"github.com/oss-fun/netlink/nl"
 	"golang.org/x/sys/unix"
 )
 
