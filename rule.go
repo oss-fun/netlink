@@ -62,20 +62,3 @@ func NewRule() *Rule {
 func NewRulePortRange(start, end uint16) *RulePortRange {
 	return &RulePortRange{Start: start, End: end}
 }
-
-// RulePortRange represents rule sport/dport range.
-type RulePortRange struct {
-	Start uint16
-	End   uint16
-}
-
-// NewRuleUIDRange creates rule uid range.
-func NewRuleUIDRange(start, end uint32) *RuleUIDRange {
-	return &RuleUIDRange{Start: start, End: end}
-}
-
-// RuleUIDRange represents rule uid range.
-type RuleUIDRange struct {
-	Start uint32
-	End   uint32
-}
