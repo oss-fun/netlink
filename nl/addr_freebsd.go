@@ -3,16 +3,17 @@ package nl
 import (
 	"unsafe"
 
+	"github.com/oss-fun/netlink/nlunix"
 	"golang.org/x/sys/unix"
 )
 
 type IfAddrmsg struct {
-	unix.IfAddrmsg
+	nlunix.IfAddrmsg
 }
 
 func NewIfAddrmsg(family int) *IfAddrmsg {
 	return &IfAddrmsg{
-		IfAddrmsg: unix.IfAddrmsg{
+		IfAddrmsg: nlunix.IfAddrmsg{
 			Family: uint8(family),
 		},
 	}
@@ -55,7 +56,7 @@ func (msg *IfAddrmsg) Len() int {
 // };
 
 type IfaCacheInfo struct {
-	unix.IfaCacheinfo
+	nlunix.IfaCacheinfo
 }
 
 func (msg *IfaCacheInfo) Len() int {

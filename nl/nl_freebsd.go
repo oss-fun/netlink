@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/oss-fun/netlink/nlunix"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 )
@@ -21,7 +22,7 @@ const (
 	FAMILY_ALL  = unix.AF_UNSPEC
 	FAMILY_V4   = unix.AF_INET
 	FAMILY_V6   = unix.AF_INET6
-	FAMILY_MPLS = unix.AF_MPLS
+	FAMILY_MPLS = nlunix.AF_MPLS
 	// Arbitrary set value (greater than default 4k) to allow receiving
 	// from kernel more verbose messages e.g. for statistics,
 	// tc rules or filters, or other more memory requiring data.
@@ -32,7 +33,7 @@ const (
 )
 
 // SupportedNlFamilies contains the list of netlink families this netlink package supports
-var SupportedNlFamilies = []int{unix.NETLINK_ROUTE, unix.NETLINK_XFRM, unix.NETLINK_NETFILTER}
+var SupportedNlFamilies = []int{nlunix.NETLINK_ROUTE, unix.NETLINK_XFRM, unix.NETLINK_NETFILTER}
 
 var nextSeqNr uint32
 
@@ -149,13 +150,13 @@ func (msg *CnMsgOp) Len() int {
 
 // IfInfomsg is related to links, but it is used for list requests as well
 type IfInfomsg struct {
-	unix.IfInfomsg
+	nlunix.IfInfomsg
 }
 
 // Create an IfInfomsg with family specified
 func NewIfInfomsg(family int) *IfInfomsg {
 	return &IfInfomsg{
-		IfInfomsg: unix.IfInfomsg{
+		IfInfomsg: nlunix.IfInfomsg{
 			Family: uint8(family),
 		},
 	}
