@@ -33,7 +33,7 @@ const (
 )
 
 // SupportedNlFamilies contains the list of netlink families this netlink package supports
-var SupportedNlFamilies = []int{nlunix.NETLINK_ROUTE, unix.NETLINK_XFRM, unix.NETLINK_NETFILTER}
+var SupportedNlFamilies = []int{nlunix.NETLINK_ROUTE, nlunix.NETLINK_XFRM, nlunix.NETLINK_NETFILTER}
 
 var nextSeqNr uint32
 
@@ -369,7 +369,7 @@ func (a *Uint32Attribute) Len() int {
 
 // Extend RtAttr to handle data and children
 type RtAttr struct {
-	unix.RtAttr
+	nlunix.RtAttr
 	Data     []byte
 	children []NetlinkRequestData
 }
@@ -446,7 +446,7 @@ func (a *RtAttr) Serialize() []byte {
 }
 
 type NetlinkRequest struct {
-	unix.NlMsghdr
+	nlunix.NlMsghdr
 	Data    []NetlinkRequestData
 	RawData []byte
 	Sockets map[int]*SocketHandle
@@ -657,7 +657,7 @@ func NewNetlinkRequest(proto, flags int) *NetlinkRequest {
 
 type NetlinkSocket struct {
 	fd  int32
-	lsa unix.SockaddrNetlink
+	lsa nlunix.SockaddrNetlink
 	sync.Mutex
 }
 
@@ -803,7 +803,7 @@ func (s *NetlinkSocket) Send(request *NetlinkRequest) error {
 	return nil
 }
 
-func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, *unix.SockaddrNetlink, error) {
+func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, *nlunix.SockaddrNetlink, error) {
 	fd := int(atomic.LoadInt32(&s.fd))
 	if fd < 0 {
 		return nil, nil, fmt.Errorf("Receive called on a closed socket")
@@ -972,7 +972,7 @@ func ParseRouteAttrAsMap(b []byte) (map[uint16]syscall.NetlinkRouteAttr, error) 
 	return attrMap, nil
 }
 
-func netlinkRouteAttrAndValue(b []byte) (*unix.RtAttr, []byte, int, error) {
+func netlinkRouteAttrAndValue(b []byte) (*nlunix.RtAttr, []byte, int, error) {
 	a := (*unix.RtAttr)(unsafe.Pointer(&b[0]))
 	if int(a.Len) < unix.SizeofRtAttr || int(a.Len) > len(b) {
 		return nil, nil, 0, unix.EINVAL
