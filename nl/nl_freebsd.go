@@ -13,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/oss-fun/netlink/nlunix"
+	"github.com/oss-fun/netlink/nlsyscall"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 )
@@ -803,7 +804,7 @@ func (s *NetlinkSocket) Send(request *NetlinkRequest) error {
 	return nil
 }
 
-func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, *nlunix.SockaddrNetlink, error) {
+func (s *NetlinkSocket) Receive() ([]nlsyscall.NetlinkMessage, *nlunix.SockaddrNetlink, error) {
 	fd := int(atomic.LoadInt32(&s.fd))
 	if fd < 0 {
 		return nil, nil, fmt.Errorf("Receive called on a closed socket")
@@ -942,14 +943,14 @@ func BEUint64Attr(v uint64) []byte {
 	return bytes
 }
 
-func ParseRouteAttr(b []byte) ([]syscall.NetlinkRouteAttr, error) {
-	var attrs []syscall.NetlinkRouteAttr
+func ParseRouteAttr(b []byte) ([]nlsyscall.NetlinkRouteAttr, error) {
+	var attrs []nlsyscall.NetlinkRouteAttr
 	for len(b) >= unix.SizeofRtAttr {
 		a, vbuf, alen, err := netlinkRouteAttrAndValue(b)
 		if err != nil {
 			return nil, err
 		}
-		ra := syscall.NetlinkRouteAttr{Attr: syscall.RtAttr(*a), Value: vbuf[:int(a.Len)-unix.SizeofRtAttr]}
+		ra := nlsyscall.NetlinkRouteAttr{Attr: syscall.RtAttr(*a), Value: vbuf[:int(a.Len)-unix.SizeofRtAttr]}
 		attrs = append(attrs, ra)
 		b = b[alen:]
 	}
@@ -958,8 +959,8 @@ func ParseRouteAttr(b []byte) ([]syscall.NetlinkRouteAttr, error) {
 
 // ParseRouteAttrAsMap parses provided buffer that contains raw RtAttrs and returns a map of parsed
 // atttributes indexed by attribute type or error if occured.
-func ParseRouteAttrAsMap(b []byte) (map[uint16]syscall.NetlinkRouteAttr, error) {
-	attrMap := make(map[uint16]syscall.NetlinkRouteAttr)
+func ParseRouteAttrAsMap(b []byte) (map[uint16]nlsyscall.NetlinkRouteAttr, error) {
+	attrMap := make(map[uint16]nlsyscall.NetlinkRouteAttr)
 
 	attrs, err := ParseRouteAttr(b)
 	if err != nil {
