@@ -7,6 +7,12 @@ type RawSockaddrNetlink struct {
 	Groups uint32
 }
 
+const (
+	SizeofIfInfomsg    = 0x10
+	SizeofIfAddrmsg    = 0x8
+	SizeofIfaCacheinfo = 0x10
+)
+
 type NlMsghdr struct {
 	Len   uint32
 	Type  uint16
@@ -42,4 +48,23 @@ type IfaCacheinfo struct {
 	Valid    uint32
 	Cstamp   uint32
 	Tstamp   uint32
+}
+
+type RtMsg struct {
+	Family   uint8
+	Dst_len  uint8
+	Src_len  uint8
+	Tos      uint8
+	Table    uint8
+	Protocol uint8
+	Scope    uint8
+	Type     uint8
+	Flags    uint32
+}
+
+type RtNexthop struct {
+	Len     uint16
+	Flags   uint8
+	Hops    uint8
+	Ifindex int32
 }

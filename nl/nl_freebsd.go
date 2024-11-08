@@ -38,12 +38,6 @@ var SupportedNlFamilies = []int{nlunix.NETLINK_ROUTE, nlunix.NETLINK_XFRM, nluni
 
 var nextSeqNr uint32
 
-// Default netlink socket timeout, 60s
-var SocketTimeoutTv = unix.Timeval{Sec: 60, Usec: 0}
-
-// ErrorMessageReporting is the default error message reporting configuration for the new netlink sockets
-var EnableErrorMessageReporting bool = false
-
 // GetIPFamily returns the family type of a net.IP.
 func GetIPFamily(ip net.IP) int {
 	if len(ip) <= net.IPv4len {
@@ -53,37 +47,6 @@ func GetIPFamily(ip net.IP) int {
 		return FAMILY_V4
 	}
 	return FAMILY_V6
-}
-
-var nativeEndian binary.ByteOrder
-
-// NativeEndian gets native endianness for the system
-func NativeEndian() binary.ByteOrder {
-	if nativeEndian == nil {
-		var x uint32 = 0x01020304
-		if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
-			nativeEndian = binary.BigEndian
-		} else {
-			nativeEndian = binary.LittleEndian
-		}
-	}
-	return nativeEndian
-}
-
-// Byte swap a 16 bit value if we aren't big endian
-func Swap16(i uint16) uint16 {
-	if NativeEndian() == binary.BigEndian {
-		return i
-	}
-	return (i&0xff00)>>8 | (i&0xff)<<8
-}
-
-// Byte swap a 32 bit value if aren't big endian
-func Swap32(i uint32) uint32 {
-	if NativeEndian() == binary.BigEndian {
-		return i
-	}
-	return (i&0xff000000)>>24 | (i&0xff0000)>>8 | (i&0xff00)<<8 | (i&0xff)<<24
 }
 
 const (
@@ -97,56 +60,6 @@ const (
 type NetlinkRequestData interface {
 	Len() int
 	Serialize() []byte
-}
-
-const (
-	PROC_CN_MCAST_LISTEN = 1
-	PROC_CN_MCAST_IGNORE
-)
-
-type CbID struct {
-	Idx uint32
-	Val uint32
-}
-
-type CnMsg struct {
-	ID     CbID
-	Seq    uint32
-	Ack    uint32
-	Length uint16
-	Flags  uint16
-}
-
-type CnMsgOp struct {
-	CnMsg
-	// here we differ from the C header
-	Op uint32
-}
-
-func NewCnMsg(idx, val, op uint32) *CnMsgOp {
-	var cm CnMsgOp
-
-	cm.ID.Idx = idx
-	cm.ID.Val = val
-
-	cm.Ack = 0
-	cm.Seq = 1
-	cm.Length = uint16(binary.Size(op))
-	cm.Op = op
-
-	return &cm
-}
-
-func (msg *CnMsgOp) Serialize() []byte {
-	return (*(*[SizeofCnMsgOp]byte)(unsafe.Pointer(msg)))[:]
-}
-
-func DeserializeCnMsgOp(b []byte) *CnMsgOp {
-	return (*CnMsgOp)(unsafe.Pointer(&b[0:SizeofCnMsgOp][0]))
-}
-
-func (msg *CnMsgOp) Len() int {
-	return SizeofCnMsgOp
 }
 
 // IfInfomsg is related to links, but it is used for list requests as well
@@ -164,148 +77,86 @@ func NewIfInfomsg(family int) *IfInfomsg {
 }
 
 func DeserializeIfInfomsg(b []byte) *IfInfomsg {
-	return (*IfInfomsg)(unsafe.Pointer(&b[0:unix.SizeofIfInfomsg][0]))
+	return (*IfInfomsg)(unsafe.Pointer(&b[0:nlunix.SizeofIfInfomsg][0]))
 }
 
 func (msg *IfInfomsg) Serialize() []byte {
-	return (*(*[unix.SizeofIfInfomsg]byte)(unsafe.Pointer(msg)))[:]
+	return (*(*[nlunix.SizeofIfInfomsg]byte)(unsafe.Pointer(msg)))[:]
 }
 
 func (msg *IfInfomsg) Len() int {
-	return unix.SizeofIfInfomsg
+	return nlunix.SizeofIfInfomsg
 }
 
 func (msg *IfInfomsg) EncapType() string {
 	switch msg.Type {
 	case 0:
 		return "generic"
-	case unix.ARPHRD_ETHER:
+	case nlunix.ARPHRD_ETHER:
 		return "ether"
-	case unix.ARPHRD_EETHER:
-		return "eether"
-	case unix.ARPHRD_AX25:
-		return "ax25"
-	case unix.ARPHRD_PRONET:
-		return "pronet"
-	case unix.ARPHRD_CHAOS:
-		return "chaos"
-	case unix.ARPHRD_IEEE802:
+	case nlunix.ARPHRD_IEEE802:
 		return "ieee802"
-	case unix.ARPHRD_ARCNET:
+	case nlunix.ARPHRD_ARCNET:
 		return "arcnet"
-	case unix.ARPHRD_APPLETLK:
-		return "atalk"
-	case unix.ARPHRD_DLCI:
+	case nlunix.ARPHRD_DLCI:
 		return "dlci"
-	case unix.ARPHRD_ATM:
+	case nlunix.ARPHRD_ATM:
 		return "atm"
-	case unix.ARPHRD_METRICOM:
-		return "metricom"
-	case unix.ARPHRD_IEEE1394:
+	case nlunix.ARPHRD_IEEE1394:
 		return "ieee1394"
-	case unix.ARPHRD_INFINIBAND:
+	case nlunix.ARPHRD_INFINIBAND:
 		return "infiniband"
-	case unix.ARPHRD_SLIP:
-		return "slip"
-	case unix.ARPHRD_CSLIP:
-		return "cslip"
-	case unix.ARPHRD_SLIP6:
-		return "slip6"
-	case unix.ARPHRD_CSLIP6:
-		return "cslip6"
-	case unix.ARPHRD_RSRVD:
-		return "rsrvd"
-	case unix.ARPHRD_ADAPT:
-		return "adapt"
-	case unix.ARPHRD_ROSE:
-		return "rose"
-	case unix.ARPHRD_X25:
-		return "x25"
-	case unix.ARPHRD_HWX25:
-		return "hwx25"
-	case unix.ARPHRD_PPP:
-		return "ppp"
-	case unix.ARPHRD_HDLC:
-		return "hdlc"
-	case unix.ARPHRD_LAPB:
-		return "lapb"
-	case unix.ARPHRD_DDCMP:
-		return "ddcmp"
-	case unix.ARPHRD_RAWHDLC:
+	case nlunix.ARPHRD_RAWHDLC:
 		return "rawhdlc"
-	case unix.ARPHRD_TUNNEL:
-		return "ipip"
-	case unix.ARPHRD_TUNNEL6:
-		return "tunnel6"
-	case unix.ARPHRD_FRAD:
+	case nlunix.ARPHRD_FRAD:
 		return "frad"
-	case unix.ARPHRD_SKIP:
-		return "skip"
-	case unix.ARPHRD_LOOPBACK:
-		return "loopback"
-	case unix.ARPHRD_LOCALTLK:
-		return "ltalk"
-	case unix.ARPHRD_FDDI:
+	case nlunix.ARPHRD_FDDI:
 		return "fddi"
-	case unix.ARPHRD_BIF:
-		return "bif"
-	case unix.ARPHRD_SIT:
+	case nlunix.ARPHRD_SIT:
 		return "sit"
-	case unix.ARPHRD_IPDDP:
-		return "ip/ddp"
-	case unix.ARPHRD_IPGRE:
-		return "gre"
-	case unix.ARPHRD_PIMREG:
-		return "pimreg"
-	case unix.ARPHRD_HIPPI:
-		return "hippi"
-	case unix.ARPHRD_ASH:
-		return "ash"
-	case unix.ARPHRD_ECONET:
-		return "econet"
-	case unix.ARPHRD_IRDA:
+	case nlunix.ARPHRD_IRDA:
 		return "irda"
-	case unix.ARPHRD_FCPP:
+	case nlunix.ARPHRD_FCPP:
 		return "fcpp"
-	case unix.ARPHRD_FCAL:
+	case nlunix.ARPHRD_FCAL:
 		return "fcal"
-	case unix.ARPHRD_FCPL:
+	case nlunix.ARPHRD_FCPL:
 		return "fcpl"
-	case unix.ARPHRD_FCFABRIC:
+	case nlunix.ARPHRD_FCFABRIC:
 		return "fcfb0"
-	case unix.ARPHRD_FCFABRIC + 1:
+	case nlunix.ARPHRD_FCFABRIC + 1:
 		return "fcfb1"
-	case unix.ARPHRD_FCFABRIC + 2:
+	case nlunix.ARPHRD_FCFABRIC + 2:
 		return "fcfb2"
-	case unix.ARPHRD_FCFABRIC + 3:
+	case nlunix.ARPHRD_FCFABRIC + 3:
 		return "fcfb3"
-	case unix.ARPHRD_FCFABRIC + 4:
+	case nlunix.ARPHRD_FCFABRIC + 4:
 		return "fcfb4"
-	case unix.ARPHRD_FCFABRIC + 5:
+	case nlunix.ARPHRD_FCFABRIC + 5:
 		return "fcfb5"
-	case unix.ARPHRD_FCFABRIC + 6:
+	case nlunix.ARPHRD_FCFABRIC + 6:
 		return "fcfb6"
-	case unix.ARPHRD_FCFABRIC + 7:
+	case nlunix.ARPHRD_FCFABRIC + 7:
 		return "fcfb7"
-	case unix.ARPHRD_FCFABRIC + 8:
+	case nlunix.ARPHRD_FCFABRIC + 8:
 		return "fcfb8"
-	case unix.ARPHRD_FCFABRIC + 9:
+	case nlunix.ARPHRD_FCFABRIC + 9:
 		return "fcfb9"
-	case unix.ARPHRD_FCFABRIC + 10:
+	case nlunix.ARPHRD_FCFABRIC + 10:
 		return "fcfb10"
-	case unix.ARPHRD_FCFABRIC + 11:
+	case nlunix.ARPHRD_FCFABRIC + 11:
 		return "fcfb11"
-	case unix.ARPHRD_FCFABRIC + 12:
+	case nlunix.ARPHRD_FCFABRIC + 12:
 		return "fcfb12"
-	case unix.ARPHRD_IEEE802_TR:
+	case nlunix.ARPHRD_IEEE802_TR:
 		return "tr"
-	case unix.ARPHRD_IEEE80211:
+	case nlunix.ARPHRD_IEEE80211:
 		return "ieee802.11"
-	case unix.ARPHRD_IEEE80211_PRISM:
+	case nlunix.ARPHRD_IEEE80211_PRISM:
 		return "ieee802.11/prism"
-	case unix.ARPHRD_IEEE80211_RADIOTAP:
+	case nlunix.ARPHRD_IEEE80211_RADIOTAP:
 		return "ieee802.11/radiotap"
-	case unix.ARPHRD_IEEE802154:
+	case nlunix.ARPHRD_IEEE802154:
 		return "ieee802.15.4"
 
 	case 65534:

@@ -4,15 +4,16 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 type RtMsg struct {
-	unix.RtMsg
+	nlunix.RtMsg
 }
 
 func NewRtMsg() *RtMsg {
 	return &RtMsg{
-		RtMsg: unix.RtMsg{
+		RtMsg: nlunix.RtMsg{
 			Table:    unix.RT_TABLE_MAIN,
 			Scope:    unix.RT_SCOPE_UNIVERSE,
 			Protocol: unix.RTPROT_BOOT,
@@ -23,7 +24,7 @@ func NewRtMsg() *RtMsg {
 
 func NewRtDelMsg() *RtMsg {
 	return &RtMsg{
-		RtMsg: unix.RtMsg{
+		RtMsg: nlunix.RtMsg{
 			Table: unix.RT_TABLE_MAIN,
 			Scope: unix.RT_SCOPE_NOWHERE,
 		},
@@ -43,13 +44,13 @@ func (msg *RtMsg) Serialize() []byte {
 }
 
 type RtNexthop struct {
-	unix.RtNexthop
+	nlunix.RtNexthop
 	Children []NetlinkRequestData
 }
 
 func DeserializeRtNexthop(b []byte) *RtNexthop {
 	return &RtNexthop{
-		RtNexthop: *((*unix.RtNexthop)(unsafe.Pointer(&b[0:unix.SizeofRtNexthop][0]))),
+		RtNexthop: *((*nlunix.RtNexthop)(unsafe.Pointer(&b[0:unix.SizeofRtNexthop][0]))),
 	}
 }
 
@@ -82,28 +83,3 @@ func (msg *RtNexthop) Serialize() []byte {
 	return buf
 }
 
-type RtGenMsg struct {
-	unix.RtGenmsg
-}
-
-func NewRtGenMsg() *RtGenMsg {
-	return &RtGenMsg{
-		RtGenmsg: unix.RtGenmsg{
-			Family: unix.AF_UNSPEC,
-		},
-	}
-}
-
-func (msg *RtGenMsg) Len() int {
-	return rtaAlignOf(unix.SizeofRtGenmsg)
-}
-
-func DeserializeRtGenMsg(b []byte) *RtGenMsg {
-	return &RtGenMsg{RtGenmsg: unix.RtGenmsg{Family: b[0]}}
-}
-
-func (msg *RtGenMsg) Serialize() []byte {
-	out := make([]byte, msg.Len())
-	out[0] = msg.Family
-	return out
-}
