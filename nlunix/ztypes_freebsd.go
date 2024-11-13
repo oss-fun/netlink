@@ -8,6 +8,8 @@ type RawSockaddrNetlink struct {
 }
 
 const (
+	SizeofNlMsghdr     = 0x10
+	SizeofRtAttr       = 0x4
 	SizeofIfInfomsg    = 0x10
 	SizeofIfAddrmsg    = 0x8
 	SizeofIfaCacheinfo = 0x10

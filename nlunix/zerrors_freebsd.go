@@ -2,6 +2,7 @@ package nlunix
 
 const (
 	AF_MPLS                   = 0x1c // Dammy unix.AF_MPLS
+	AF_NETLINK                = 38
 	ARPHRD_ETHER              = 1
 	ARPHRD_IEEE802            = 6
 	ARPHRD_ARCNET             = 7
@@ -26,4 +27,11 @@ const (
 	NETLINK_ROUTE             = 0x0
 	NETLINK_NETFILTER         = 0xc  // not supported
 	NETLINK_XFRM              = 0x6  // (not supported) PF_SETKEY
+	NLMSG_ERROR               = 0x2
+	NLMSG_DONE                = 0x3
+	NLM_F_ACK_TLVS          = 0x200
+	NLM_F_DUMP_INTR         = 0x10
+	NLM_F_MULTI             = 0x2
+	NLM_F_REQUEST           = 0x1
+	RTA_ALIGNTO               = 0x4  // sizeof(uint32_t)
 )

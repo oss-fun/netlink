@@ -38,6 +38,12 @@ var SupportedNlFamilies = []int{nlunix.NETLINK_ROUTE, nlunix.NETLINK_XFRM, nluni
 
 var nextSeqNr uint32
 
+// Default netlink socket timeout, 60s
+var SocketTimeoutTv = unix.Timeval{Sec: 60, Usec: 0}
+
+// ErrorMessageReporting is the default error message reporting configuration for the new netlink sockets
+var EnableErrorMessageReporting bool = false
+
 // GetIPFamily returns the family type of a net.IP.
 func GetIPFamily(ip net.IP) int {
 	if len(ip) <= net.IPv4len {
@@ -47,6 +53,21 @@ func GetIPFamily(ip net.IP) int {
 		return FAMILY_V4
 	}
 	return FAMILY_V6
+}
+
+var nativeEndian binary.ByteOrder
+
+// NativeEndian gets native endianness for the system
+func NativeEndian() binary.ByteOrder {
+	if nativeEndian == nil {
+		var x uint32 = 0x01020304
+		if *(*byte)(unsafe.Pointer(&x)) == 0x01 {
+			nativeEndian = binary.BigEndian
+		} else {
+			nativeEndian = binary.LittleEndian
+		}
+	}
+	return nativeEndian
 }
 
 const (
@@ -170,11 +191,11 @@ func (msg *IfInfomsg) EncapType() string {
 // Round the length of a netlink message up to align it properly.
 // Taken from syscall/netlink_linux.go by The Go Authors under BSD-style license.
 func nlmAlignOf(msglen int) int {
-	return (msglen + syscall.NLMSG_ALIGNTO - 1) & ^(syscall.NLMSG_ALIGNTO - 1)
+	return (msglen + nlsyscall.NLMSG_ALIGNTO - 1) & ^(nlsyscall.NLMSG_ALIGNTO - 1)
 }
 
 func rtaAlignOf(attrlen int) int {
-	return (attrlen + unix.RTA_ALIGNTO - 1) & ^(unix.RTA_ALIGNTO - 1)
+	return (attrlen + nlunix.RTA_ALIGNTO - 1) & ^(nlunix.RTA_ALIGNTO - 1)
 }
 
 func NewIfInfomsgChild(parent *RtAttr, family int) *IfInfomsg {
@@ -229,7 +250,7 @@ type RtAttr struct {
 // Create a new Extended RtAttr object
 func NewRtAttr(attrType int, data []byte) *RtAttr {
 	return &RtAttr{
-		RtAttr: unix.RtAttr{
+		RtAttr: nlunix.RtAttr{
 			Type: uint16(attrType),
 		},
 		children: []NetlinkRequestData{},
@@ -258,14 +279,14 @@ func (a *RtAttr) AddChild(attr NetlinkRequestData) {
 
 func (a *RtAttr) Len() int {
 	if len(a.children) == 0 {
-		return (unix.SizeofRtAttr + len(a.Data))
+		return (nlunix.SizeofRtAttr + len(a.Data))
 	}
 
 	l := 0
 	for _, child := range a.children {
 		l += rtaAlignOf(child.Len())
 	}
-	l += unix.SizeofRtAttr
+	l += nlunix.SizeofRtAttr
 	return rtaAlignOf(l + len(a.Data))
 }
 
@@ -306,7 +327,7 @@ type NetlinkRequest struct {
 
 // Serialize the Netlink Request into a byte array
 func (req *NetlinkRequest) Serialize() []byte {
-	length := unix.SizeofNlMsghdr
+	length := nlunix.SizeofNlMsghdr
 	dataBytes := make([][]byte, len(req.Data))
 	for i, data := range req.Data {
 		dataBytes[i] = data.Serialize()
@@ -316,8 +337,8 @@ func (req *NetlinkRequest) Serialize() []byte {
 
 	req.Len = uint32(length)
 	b := make([]byte, length)
-	hdr := (*(*[unix.SizeofNlMsghdr]byte)(unsafe.Pointer(req)))[:]
-	next := unix.SizeofNlMsghdr
+	hdr := (*(*[nlunix.SizeofNlMsghdr]byte)(unsafe.Pointer(req)))[:]
+	next := nlunix.SizeofNlMsghdr
 	copy(b[0:next], hdr)
 	for _, data := range dataBytes {
 		for _, dataByte := range data {
@@ -431,13 +452,13 @@ done:
 				continue
 			}
 
-			if m.Header.Flags&unix.NLM_F_DUMP_INTR != 0 {
+			if m.Header.Flags&nlunix.NLM_F_DUMP_INTR != 0 {
 				return syscall.Errno(unix.EINTR)
 			}
 
-			if m.Header.Type == unix.NLMSG_DONE || m.Header.Type == unix.NLMSG_ERROR {
+			if m.Header.Type == nlunix.NLMSG_DONE || m.Header.Type == nlunix.NLMSG_ERROR {
 				// NLMSG_DONE might have no payload, if so assume no error.
-				if m.Header.Type == unix.NLMSG_DONE && len(m.Data) == 0 {
+				if m.Header.Type == nlunix.NLMSG_DONE && len(m.Data) == 0 {
 					break done
 				}
 
@@ -450,15 +471,15 @@ done:
 				err = syscall.Errno(-errno)
 
 				unreadData := m.Data[4:]
-				if m.Header.Flags&unix.NLM_F_ACK_TLVS != 0 && len(unreadData) > syscall.SizeofNlMsghdr {
+				if m.Header.Flags&nlunix.NLM_F_ACK_TLVS != 0 && len(unreadData) > nlsyscall.SizeofNlMsghdr {
 					// Skip the echoed request message.
-					echoReqH := (*syscall.NlMsghdr)(unsafe.Pointer(&unreadData[0]))
+					echoReqH := (*nlsyscall.NlMsghdr)(unsafe.Pointer(&unreadData[0]))
 					unreadData = unreadData[nlmAlignOf(int(echoReqH.Len)):]
 
 					// Annotate `err` using nlmsgerr attributes.
-					for len(unreadData) >= syscall.SizeofRtAttr {
-						attr := (*syscall.RtAttr)(unsafe.Pointer(&unreadData[0]))
-						attrData := unreadData[syscall.SizeofRtAttr:attr.Len]
+					for len(unreadData) >= nlsyscall.SizeofRtAttr {
+						attr := (*nlsyscall.RtAttr)(unsafe.Pointer(&unreadData[0]))
+						attrData := unreadData[nlsyscall.SizeofRtAttr:attr.Len]
 
 						switch attr.Type {
 						case NLMSGERR_ATTR_MSG:
@@ -481,7 +502,7 @@ done:
 				// pass them to the iterator func.
 				f = dummyMsgIterFunc
 			}
-			if m.Header.Flags&unix.NLM_F_MULTI == 0 {
+			if m.Header.Flags&nlunix.NLM_F_MULTI == 0 {
 				break done
 			}
 		}
@@ -498,10 +519,10 @@ func dummyMsgIterFunc(msg []byte) bool {
 // the message is serialized
 func NewNetlinkRequest(proto, flags int) *NetlinkRequest {
 	return &NetlinkRequest{
-		NlMsghdr: unix.NlMsghdr{
-			Len:   uint32(unix.SizeofNlMsghdr),
+		NlMsghdr: nlunix.NlMsghdr{
+			Len:   uint32(nlunix.SizeofNlMsghdr),
 			Type:  uint16(proto),
-			Flags: unix.NLM_F_REQUEST | uint16(flags),
+			Flags: nlunix.NLM_F_REQUEST | uint16(flags),
 			Seq:   atomic.AddUint32(&nextSeqNr, 1),
 		},
 	}
@@ -514,14 +535,14 @@ type NetlinkSocket struct {
 }
 
 func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
-	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, protocol)
+	fd, err := unix.Socket(nlunix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, protocol)
 	if err != nil {
 		return nil, err
 	}
 	s := &NetlinkSocket{
 		fd: int32(fd),
 	}
-	s.lsa.Family = unix.AF_NETLINK
+	s.lsa.Family = nlunix.AF_NETLINK
 	if err := unix.Bind(fd, &s.lsa); err != nil {
 		unix.Close(fd)
 		return nil, err
@@ -602,14 +623,14 @@ func executeInNetns(newNs, curNs netns.NsHandle) (func(), error) {
 // Returns the netlink socket on which Receive() method can be called
 // to retrieve the messages from the kernel.
 func Subscribe(protocol int, groups ...uint) (*NetlinkSocket, error) {
-	fd, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW, protocol)
+	fd, err := unix.Socket(nlunix.AF_NETLINK, unix.SOCK_RAW, protocol)
 	if err != nil {
 		return nil, err
 	}
 	s := &NetlinkSocket{
 		fd: int32(fd),
 	}
-	s.lsa.Family = unix.AF_NETLINK
+	s.lsa.Family = nlunix.AF_NETLINK
 
 	for _, g := range groups {
 		s.lsa.Groups |= (1 << (g - 1))
@@ -796,12 +817,12 @@ func BEUint64Attr(v uint64) []byte {
 
 func ParseRouteAttr(b []byte) ([]nlsyscall.NetlinkRouteAttr, error) {
 	var attrs []nlsyscall.NetlinkRouteAttr
-	for len(b) >= unix.SizeofRtAttr {
+	for len(b) >= nlunix.SizeofRtAttr {
 		a, vbuf, alen, err := netlinkRouteAttrAndValue(b)
 		if err != nil {
 			return nil, err
 		}
-		ra := nlsyscall.NetlinkRouteAttr{Attr: syscall.RtAttr(*a), Value: vbuf[:int(a.Len)-unix.SizeofRtAttr]}
+		ra := nlsyscall.NetlinkRouteAttr{Attr: nlsyscall.RtAttr(*a), Value: vbuf[:int(a.Len)-nlunix.SizeofRtAttr]}
 		attrs = append(attrs, ra)
 		b = b[alen:]
 	}
@@ -825,11 +846,11 @@ func ParseRouteAttrAsMap(b []byte) (map[uint16]nlsyscall.NetlinkRouteAttr, error
 }
 
 func netlinkRouteAttrAndValue(b []byte) (*nlunix.RtAttr, []byte, int, error) {
-	a := (*unix.RtAttr)(unsafe.Pointer(&b[0]))
-	if int(a.Len) < unix.SizeofRtAttr || int(a.Len) > len(b) {
+	a := (*nlunix.RtAttr)(unsafe.Pointer(&b[0]))
+	if int(a.Len) < nlunix.SizeofRtAttr || int(a.Len) > len(b) {
 		return nil, nil, 0, unix.EINVAL
 	}
-	return a, b[unix.SizeofRtAttr:], rtaAlignOf(int(a.Len)), nil
+	return a, b[nlunix.SizeofRtAttr:], rtaAlignOf(int(a.Len)), nil
 }
 
 // SocketHandle contains the netlink socket and the associated
