@@ -14,8 +14,8 @@ type RtMsg struct {
 func NewRtMsg() *RtMsg {
 	return &RtMsg{
 		RtMsg: nlunix.RtMsg{
-			Table:    unix.RT_TABLE_MAIN,
-			Scope:    unix.RT_SCOPE_UNIVERSE,
+			Table:    nlunix.RT_TABLE_MAIN,
+			Scope:    nlunix.RT_SCOPE_UNIVERSE,
 			Protocol: unix.RTPROT_BOOT,
 			Type:     unix.RTN_UNICAST,
 		},
@@ -25,8 +25,8 @@ func NewRtMsg() *RtMsg {
 func NewRtDelMsg() *RtMsg {
 	return &RtMsg{
 		RtMsg: nlunix.RtMsg{
-			Table: unix.RT_TABLE_MAIN,
-			Scope: unix.RT_SCOPE_NOWHERE,
+			Table: nlunix.RT_TABLE_MAIN,
+			Scope: nlunix.RT_SCOPE_NOWHERE,
 		},
 	}
 }

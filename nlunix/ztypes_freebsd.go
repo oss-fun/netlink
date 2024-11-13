@@ -8,6 +8,10 @@ type RawSockaddrNetlink struct {
 }
 
 const (
+	RT_SCOPE_NOWHERE   = 0xff
+	RT_SCOPE_UNIVERSE  = 0x0
+	RT_TABLE_MAIN      = 0x0 // RT_DEFAULT_FIB
+	RT_TABLE_UNSPEC    = 0xFFFFFFFF // RT_ALL_FIBS
 	SizeofNlMsghdr     = 0x10
 	SizeofRtAttr       = 0x4
 	SizeofIfInfomsg    = 0x10
