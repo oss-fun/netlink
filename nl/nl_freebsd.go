@@ -681,23 +681,23 @@ func (s *NetlinkSocket) Receive() ([]nlsyscall.NetlinkMessage, *nlunix.SockaddrN
 	if fd < 0 {
 		return nil, nil, fmt.Errorf("Receive called on a closed socket")
 	}
-	var fromAddr *unix.SockaddrNetlink
+	var fromAddr *nlunix.SockaddrNetlink
 	var rb [RECEIVE_BUFFER_SIZE]byte
 	nr, from, err := unix.Recvfrom(fd, rb[:], 0)
 	if err != nil {
 		return nil, nil, err
 	}
-	fromAddr, ok := from.(*unix.SockaddrNetlink)
+	fromAddr, ok := from.(*nlunix.SockaddrNetlink)
 	if !ok {
 		return nil, nil, fmt.Errorf("Error converting to netlink sockaddr")
 	}
-	if nr < unix.NLMSG_HDRLEN {
+	if nr < nlunix.NLMSG_HDRLEN {
 		return nil, nil, fmt.Errorf("Got short response from netlink")
 	}
 	msgLen := nlmAlignOf(nr)
 	rb2 := make([]byte, msgLen)
 	copy(rb2, rb[:msgLen])
-	nl, err := syscall.ParseNetlinkMessage(rb2)
+	nl, err := nlsyscall.ParseNetlinkMessage(rb2)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -720,9 +720,9 @@ func (s *NetlinkSocket) SetReceiveTimeout(timeout *unix.Timeval) error {
 
 // SetReceiveBufferSize allows to set a receive buffer size on the socket
 func (s *NetlinkSocket) SetReceiveBufferSize(size int, force bool) error {
-	opt := unix.SO_RCVBUF
+	opt := nlunix.SO_RCVBUF
 	if force {
-		opt = unix.SO_RCVBUFFORCE
+		opt = nlunix.SO_RCVBUFFORCE
 	}
 	return unix.SetsockoptInt(int(s.fd), unix.SOL_SOCKET, opt, size)
 }
@@ -734,7 +734,7 @@ func (s *NetlinkSocket) SetExtAck(enable bool) error {
 		enableN = 1
 	}
 
-	return unix.SetsockoptInt(int(s.fd), unix.SOL_NETLINK, unix.NETLINK_EXT_ACK, enableN)
+	return unix.SetsockoptInt(int(s.fd), nlunix.SOL_NETLINK, nlunix.NETLINK_EXT_ACK, enableN)
 }
 
 func (s *NetlinkSocket) GetPid() (uint32, error) {
@@ -744,7 +744,7 @@ func (s *NetlinkSocket) GetPid() (uint32, error) {
 		return 0, err
 	}
 	switch v := lsa.(type) {
-	case *unix.SockaddrNetlink:
+	case *nlunix.SockaddrNetlink:
 		return v.Pid, nil
 	}
 	return 0, fmt.Errorf("Wrong socket type")

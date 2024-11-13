@@ -24,14 +24,23 @@ const (
 	ARPHRD_IEEE80211_PRISM    = 802
 	ARPHRD_IEEE80211_RADIOTAP = 803
 	ARPHRD_IEEE802154         = 804
+	NETLINK_EXT_ACK           = 0xb	
 	NETLINK_ROUTE             = 0x0
 	NETLINK_NETFILTER         = 0xc  // not supported
 	NETLINK_XFRM              = 0x6  // (not supported) PF_SETKEY
 	NLMSG_ERROR               = 0x2
 	NLMSG_DONE                = 0x3
-	NLM_F_ACK_TLVS          = 0x200
-	NLM_F_DUMP_INTR         = 0x10
-	NLM_F_MULTI             = 0x2
-	NLM_F_REQUEST           = 0x1
+	NLMSG_HDRLEN              = 0x10
+	NLM_F_ACK_TLVS            = 0x200
+	NLM_F_DUMP_INTR           = 0x10
+	NLM_F_MULTI               = 0x2
+	NLM_F_REQUEST             = 0x1
 	RTA_ALIGNTO               = 0x4  // sizeof(uint32_t)
+	SOL_NETLINK               = 0x10e
+)
+
+/* zerrors_freebsd_arch.go */
+const (
+	SO_RCVBUF      = 0x1002
+	SO_RCVBUFFORCE = 0x21 // not supported
 )
