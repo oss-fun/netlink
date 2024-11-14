@@ -4,7 +4,6 @@ import (
 	"unsafe"
 
 	"github.com/oss-fun/netlink/nlunix"
-	"golang.org/x/sys/unix"
 )
 
 type IfAddrmsg struct {

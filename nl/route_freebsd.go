@@ -3,7 +3,6 @@ package nl
 import (
 	"unsafe"
 
-	"golang.org/x/sys/unix"
 	"github.com/oss-fun/netlink/nlunix"
 )
 
@@ -16,8 +15,8 @@ func NewRtMsg() *RtMsg {
 		RtMsg: nlunix.RtMsg{
 			Table:    nlunix.RT_TABLE_MAIN,
 			Scope:    nlunix.RT_SCOPE_UNIVERSE,
-			Protocol: unix.RTPROT_BOOT,
-			Type:     unix.RTN_UNICAST,
+			Protocol: nlunix.RTPROT_BOOT,
+			Type:     nlunix.RTN_UNICAST,
 		},
 	}
 }
@@ -32,15 +31,15 @@ func NewRtDelMsg() *RtMsg {
 }
 
 func (msg *RtMsg) Len() int {
-	return unix.SizeofRtMsg
+	return nlunix.SizeofRtMsg
 }
 
 func DeserializeRtMsg(b []byte) *RtMsg {
-	return (*RtMsg)(unsafe.Pointer(&b[0:unix.SizeofRtMsg][0]))
+	return (*RtMsg)(unsafe.Pointer(&b[0:nlunix.SizeofRtMsg][0]))
 }
 
 func (msg *RtMsg) Serialize() []byte {
-	return (*(*[unix.SizeofRtMsg]byte)(unsafe.Pointer(msg)))[:]
+	return (*(*[nlunix.SizeofRtMsg]byte)(unsafe.Pointer(msg)))[:]
 }
 
 type RtNexthop struct {
@@ -50,20 +49,20 @@ type RtNexthop struct {
 
 func DeserializeRtNexthop(b []byte) *RtNexthop {
 	return &RtNexthop{
-		RtNexthop: *((*nlunix.RtNexthop)(unsafe.Pointer(&b[0:unix.SizeofRtNexthop][0]))),
+		RtNexthop: *((*nlunix.RtNexthop)(unsafe.Pointer(&b[0:nlunix.SizeofRtNexthop][0]))),
 	}
 }
 
 func (msg *RtNexthop) Len() int {
 	if len(msg.Children) == 0 {
-		return unix.SizeofRtNexthop
+		return nlunix.SizeofRtNexthop
 	}
 
 	l := 0
 	for _, child := range msg.Children {
 		l += rtaAlignOf(child.Len())
 	}
-	l += unix.SizeofRtNexthop
+	l += nlunix.SizeofRtNexthop
 	return rtaAlignOf(l)
 }
 
@@ -71,8 +70,8 @@ func (msg *RtNexthop) Serialize() []byte {
 	length := msg.Len()
 	msg.RtNexthop.Len = uint16(length)
 	buf := make([]byte, length)
-	copy(buf, (*(*[unix.SizeofRtNexthop]byte)(unsafe.Pointer(msg)))[:])
-	next := rtaAlignOf(unix.SizeofRtNexthop)
+	copy(buf, (*(*[nlunix.SizeofRtNexthop]byte)(unsafe.Pointer(msg)))[:])
+	next := rtaAlignOf(nlunix.SizeofRtNexthop)
 	if len(msg.Children) > 0 {
 		for _, child := range msg.Children {
 			childBuf := child.Serialize()

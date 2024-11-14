@@ -36,6 +36,7 @@ const (
 	NLM_F_MULTI               = 0x2
 	NLM_F_REQUEST             = 0x1
 	RTA_ALIGNTO               = 0x4  // sizeof(uint32_t)
+	RTPROT_BOOT               = 0x3
 	SOL_NETLINK               = 0x10e
 )
 

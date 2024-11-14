@@ -12,11 +12,14 @@ const (
 	RT_SCOPE_UNIVERSE  = 0x0
 	RT_TABLE_MAIN      = 0x0 // RT_DEFAULT_FIB
 	RT_TABLE_UNSPEC    = 0xFFFFFFFF // RT_ALL_FIBS
+	RTN_UNICAST        = 0x1
 	SizeofNlMsghdr     = 0x10
 	SizeofRtAttr       = 0x4
 	SizeofIfInfomsg    = 0x10
 	SizeofIfAddrmsg    = 0x8
 	SizeofIfaCacheinfo = 0x10
+	SizeofRtMsg        = 0xc
+	SizeofRtNexthop    = 0x8
 )
 
 type NlMsghdr struct {
