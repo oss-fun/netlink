@@ -543,7 +543,7 @@ func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
 		fd: int32(fd),
 	}
 	s.lsa.Family = nlunix.AF_NETLINK
-	if err := unix.Bind(fd, &s.lsa); err != nil {
+	if err := nlunix.Bind(fd, &s.lsa); err != nil {
 		unix.Close(fd)
 		return nil, err
 	}
@@ -636,7 +636,7 @@ func Subscribe(protocol int, groups ...uint) (*NetlinkSocket, error) {
 		s.lsa.Groups |= (1 << (g - 1))
 	}
 
-	if err := unix.Bind(fd, &s.lsa); err != nil {
+	if err := nlunix.Bind(fd, &s.lsa); err != nil {
 		unix.Close(fd)
 		return nil, err
 	}

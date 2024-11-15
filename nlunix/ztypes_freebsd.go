@@ -7,6 +7,12 @@ type RawSockaddrNetlink struct {
 	Groups uint32
 }
 
+type _Socklen uint32
+
+const (
+	SizeofSockaddrNetlink = 0xc
+)
+
 const (
 	RT_SCOPE_NOWHERE   = 0xff
 	RT_SCOPE_UNIVERSE  = 0x0
