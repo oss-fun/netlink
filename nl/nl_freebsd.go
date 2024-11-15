@@ -670,7 +670,7 @@ func (s *NetlinkSocket) Send(request *NetlinkRequest) error {
 	if fd < 0 {
 		return fmt.Errorf("Send called on a closed socket")
 	}
-	if err := unix.Sendto(fd, request.Serialize(), 0, &s.lsa); err != nil {
+	if err := nlunix.Sendto(fd, request.Serialize(), 0, &s.lsa); err != nil {
 		return err
 	}
 	return nil
