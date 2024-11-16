@@ -739,7 +739,7 @@ func (s *NetlinkSocket) SetExtAck(enable bool) error {
 
 func (s *NetlinkSocket) GetPid() (uint32, error) {
 	fd := int(atomic.LoadInt32(&s.fd))
-	lsa, err := unix.Getsockname(fd)
+	lsa, err := nlunix.Getsockname(fd)
 	if err != nil {
 		return 0, err
 	}

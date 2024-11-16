@@ -14,6 +14,14 @@ func bind(s int, addr unsafe.Pointer, addrlen _Socklen) (err error) {
 	return
 }
 
+func getsockname(fd int, rsa *RawSockaddrAny, addrlen *_Socklen) (err error) {
+	_, _, e1 := unix.RawSyscall(unix.SYS_GETSOCKNAME, uintptr(fd), uintptr(unsafe.Pointer(rsa)), uintptr(unsafe.Pointer(addrlen)))
+	if e1 != 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func recvfrom(fd int, p []byte, flags int, from *RawSockaddrAny, fromlen *_Socklen) (n int, err error) {
 	var _p0 unsafe.Pointer
 	if len(p) > 0 {
