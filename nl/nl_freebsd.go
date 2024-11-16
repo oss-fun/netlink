@@ -683,7 +683,7 @@ func (s *NetlinkSocket) Receive() ([]nlsyscall.NetlinkMessage, *nlunix.SockaddrN
 	}
 	var fromAddr *nlunix.SockaddrNetlink
 	var rb [RECEIVE_BUFFER_SIZE]byte
-	nr, from, err := unix.Recvfrom(fd, rb[:], 0)
+	nr, from, err := nlunix.Recvfrom(fd, rb[:], 0)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -7,10 +7,57 @@ type RawSockaddrNetlink struct {
 	Groups uint32
 }
 
+type RawSockaddrInet4 struct {
+	Family uint16
+	Port   uint16
+	Addr   [4]byte /* in_addr */
+	Zero   [8]uint8
+}
+
+type RawSockaddrInet6 struct {
+	Family   uint16
+	Port     uint16
+	Flowinfo uint32
+	Addr     [16]byte /* in6_addr */
+	Scope_id uint32
+}
+
+type RawSockaddrUnix struct {
+	Len    uint8
+	Family uint8
+	Path   [104]int8
+}
+
+type RawSockaddrDatalink struct {
+	Len    uint8
+	Family uint8
+	Index  uint16
+	Type   uint8
+	Nlen   uint8
+	Alen   uint8
+	Slen   uint8
+	Data   [46]int8
+}
+
+type RawSockaddr struct {
+	Family uint16
+	Data   [14]int8
+}
+
+type RawSockaddrAny struct {
+	Addr RawSockaddr
+	Pad  [96]int8
+}
+
 type _Socklen uint32
 
 const (
-	SizeofSockaddrNetlink = 0xc
+	SizeofSockaddrInet4    = 0x10
+	SizeofSockaddrInet6    = 0x1c
+	SizeofSockaddrAny      = 0x70
+	SizeofSockaddrUnix     = 0x6a
+	SizeofSockaddrDatalink = 0x36
+	SizeofSockaddrNetlink  = 0xc
 )
 
 const (

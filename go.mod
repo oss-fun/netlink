@@ -1,6 +1,6 @@
 module github.com/oss-fun/netlink
 
-go 1.12
+go 1.17
 
 require (
 	github.com/vishvananda/netns v0.0.4
