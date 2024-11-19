@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"golang.org/x/sys/unix"
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 func (msg *RtMsg) write(b []byte) {
@@ -23,7 +23,7 @@ func (msg *RtMsg) write(b []byte) {
 }
 
 func (msg *RtMsg) serializeSafe() []byte {
-	len := unix.SizeofRtMsg
+	len := nlunix.SizeofRtMsg
 	b := make([]byte, len)
 	msg.write(b)
 	return b
@@ -31,12 +31,12 @@ func (msg *RtMsg) serializeSafe() []byte {
 
 func deserializeRtMsgSafe(b []byte) *RtMsg {
 	var msg = RtMsg{}
-	binary.Read(bytes.NewReader(b[0:unix.SizeofRtMsg]), NativeEndian(), &msg)
+	binary.Read(bytes.NewReader(b[0:nlunix.SizeofRtMsg]), NativeEndian(), &msg)
 	return &msg
 }
 
 func TestRtMsgDeserializeSerialize(t *testing.T) {
-	var orig = make([]byte, unix.SizeofRtMsg)
+	var orig = make([]byte, nlunix.SizeofRtMsg)
 	rand.Read(orig)
 	safemsg := deserializeRtMsgSafe(orig)
 	msg := DeserializeRtMsg(orig)
@@ -44,17 +44,17 @@ func TestRtMsgDeserializeSerialize(t *testing.T) {
 }
 
 func TestDeserializeRtNexthop(t *testing.T) {
-	buf := make([]byte, unix.SizeofRtNexthop+64)
+	buf := make([]byte, nlunix.SizeofRtNexthop+64)
 	native := NativeEndian()
-	native.PutUint16(buf[0:2], unix.SizeofRtNexthop)
+	native.PutUint16(buf[0:2], nlunix.SizeofRtNexthop)
 	buf[2] = 17
 	buf[3] = 1
 	native.PutUint32(buf[4:8], 1234)
 
 	msg := DeserializeRtNexthop(buf)
 	safemsg := &RtNexthop{
-		unix.RtNexthop{
-			Len:     unix.SizeofRtNexthop,
+		nlunix.RtNexthop{
+			Len:     nlunix.SizeofRtNexthop,
 			Flags:   17,
 			Hops:    1,
 			Ifindex: 1234,

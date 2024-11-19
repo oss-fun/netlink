@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 type testSerializer interface {
@@ -41,7 +42,7 @@ func (msg *IfInfomsg) write(b []byte) {
 }
 
 func (msg *IfInfomsg) serializeSafe() []byte {
-	length := unix.SizeofIfInfomsg
+	length := nlunix.SizeofIfInfomsg
 	b := make([]byte, length)
 	msg.write(b)
 	return b
@@ -49,12 +50,12 @@ func (msg *IfInfomsg) serializeSafe() []byte {
 
 func deserializeIfInfomsgSafe(b []byte) *IfInfomsg {
 	var msg = IfInfomsg{}
-	binary.Read(bytes.NewReader(b[0:unix.SizeofIfInfomsg]), NativeEndian(), &msg)
+	binary.Read(bytes.NewReader(b[0:nlunix.SizeofIfInfomsg]), NativeEndian(), &msg)
 	return &msg
 }
 
 func TestIfInfomsgDeserializeSerialize(t *testing.T) {
-	var orig = make([]byte, unix.SizeofIfInfomsg)
+	var orig = make([]byte, nlunix.SizeofIfInfomsg)
 	rand.Read(orig)
 	// zero out the pad byte
 	orig[1] = 0
@@ -63,8 +64,10 @@ func TestIfInfomsgDeserializeSerialize(t *testing.T) {
 	testDeserializeSerialize(t, orig, safemsg, msg)
 }
 
+const RTNLGRP_NEIGH = 0x3
+
 func TestIfSocketCloses(t *testing.T) {
-	nlSock, err := Subscribe(unix.NETLINK_ROUTE, unix.RTNLGRP_NEIGH)
+	nlSock, err := Subscribe(nlunix.NETLINK_ROUTE, RTNLGRP_NEIGH)
 	if err != nil {
 		t.Fatalf("Error on creating the socket: %v", err)
 	}
@@ -97,38 +100,6 @@ func TestIfSocketCloses(t *testing.T) {
 	if msg == nil {
 		t.Fatalf("Expected error instead received nil")
 	}
-}
-
-func (msg *CnMsgOp) write(b []byte) {
-	native := NativeEndian()
-	native.PutUint32(b[0:4], msg.ID.Idx)
-	native.PutUint32(b[4:8], msg.ID.Val)
-	native.PutUint32(b[8:12], msg.Seq)
-	native.PutUint32(b[12:16], msg.Ack)
-	native.PutUint16(b[16:18], msg.Length)
-	native.PutUint16(b[18:20], msg.Flags)
-	native.PutUint32(b[20:24], msg.Op)
-}
-
-func (msg *CnMsgOp) serializeSafe() []byte {
-	length := msg.Len()
-	b := make([]byte, length)
-	msg.write(b)
-	return b
-}
-
-func deserializeCnMsgOpSafe(b []byte) *CnMsgOp {
-	var msg = CnMsgOp{}
-	binary.Read(bytes.NewReader(b[0:SizeofCnMsgOp]), NativeEndian(), &msg)
-	return &msg
-}
-
-func TestCnMsgOpDeserializeSerialize(t *testing.T) {
-	var orig = make([]byte, SizeofCnMsgOp)
-	rand.Read(orig)
-	safemsg := deserializeCnMsgOpSafe(orig)
-	msg := DeserializeCnMsgOp(orig)
-	testDeserializeSerialize(t, orig, safemsg, msg)
 }
 
 func TestParseRouteAttrAsMap(t *testing.T) {

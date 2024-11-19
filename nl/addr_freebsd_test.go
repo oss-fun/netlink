@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"golang.org/x/sys/unix"
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 func (msg *IfAddrmsg) write(b []byte) {
@@ -19,7 +19,7 @@ func (msg *IfAddrmsg) write(b []byte) {
 }
 
 func (msg *IfAddrmsg) serializeSafe() []byte {
-	len := unix.SizeofIfAddrmsg
+	len := nlunix.SizeofIfAddrmsg
 	b := make([]byte, len)
 	msg.write(b)
 	return b
@@ -27,12 +27,12 @@ func (msg *IfAddrmsg) serializeSafe() []byte {
 
 func deserializeIfAddrmsgSafe(b []byte) *IfAddrmsg {
 	var msg = IfAddrmsg{}
-	binary.Read(bytes.NewReader(b[0:unix.SizeofIfAddrmsg]), NativeEndian(), &msg)
+	binary.Read(bytes.NewReader(b[0:nlunix.SizeofIfAddrmsg]), NativeEndian(), &msg)
 	return &msg
 }
 
 func TestIfAddrmsgDeserializeSerialize(t *testing.T) {
-	var orig = make([]byte, unix.SizeofIfAddrmsg)
+	var orig = make([]byte, nlunix.SizeofIfAddrmsg)
 	rand.Read(orig)
 	safemsg := deserializeIfAddrmsgSafe(orig)
 	msg := DeserializeIfAddrmsg(orig)
@@ -48,7 +48,7 @@ func (msg *IfaCacheInfo) write(b []byte) {
 }
 
 func (msg *IfaCacheInfo) serializeSafe() []byte {
-	length := unix.SizeofIfaCacheinfo
+	length := nlunix.SizeofIfaCacheinfo
 	b := make([]byte, length)
 	msg.write(b)
 	return b
@@ -56,12 +56,12 @@ func (msg *IfaCacheInfo) serializeSafe() []byte {
 
 func deserializeIfaCacheInfoSafe(b []byte) *IfaCacheInfo {
 	var msg = IfaCacheInfo{}
-	binary.Read(bytes.NewReader(b[0:unix.SizeofIfaCacheinfo]), NativeEndian(), &msg)
+	binary.Read(bytes.NewReader(b[0:nlunix.SizeofIfaCacheinfo]), NativeEndian(), &msg)
 	return &msg
 }
 
 func TestIfaCacheInfoDeserializeSerialize(t *testing.T) {
-	var orig = make([]byte, unix.SizeofIfaCacheinfo)
+	var orig = make([]byte, nlunix.SizeofIfaCacheinfo)
 	rand.Read(orig)
 	safemsg := deserializeIfaCacheInfoSafe(orig)
 	msg := DeserializeIfaCacheInfo(orig)
