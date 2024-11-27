@@ -61,8 +61,20 @@ const (
 )
 
 const (
-	RT_SCOPE_NOWHERE   = 0xff
+	IFA_UNSPEC         = 0x0
+	IFA_ADDRESS        = 0x1
+	IFA_LOCAL          = 0x2
+	IFA_LABEL          = 0x3
+	IFA_BROADCAST      = 0x4
+	IFA_ANYCAST        = 0x5
+	IFA_CACHEINFO      = 0x6
+	IFA_MULTICAST      = 0x7
+	IFA_FLAGS          = 0x8
 	RT_SCOPE_UNIVERSE  = 0x0
+	RT_SCOPE_SITE      = 0xc8
+	RT_SCOPE_LINK      = 0xfd
+	RT_SCOPE_HOST      = 0xfe
+	RT_SCOPE_NOWHERE   = 0xff
 	RT_TABLE_MAIN      = 0x0 // RT_DEFAULT_FIB
 	RT_TABLE_UNSPEC    = 0xFFFFFFFF // RT_ALL_FIBS
 	RTN_UNICAST        = 0x1
@@ -130,3 +142,23 @@ type RtNexthop struct {
 	Hops    uint8
 	Ifindex int32
 }
+
+const (
+	IFLA_ADDRESS           = 0x1
+	IFLA_IFNAME            = 0x3
+	IFLA_MTU               = 0x4
+	IFLA_LINK              = 0x5
+	IFLA_TXQLEN            = 0xd
+	IFLA_LINKINFO          = 0x12
+	IFLA_NET_NS_PID        = 0x13
+	IFLA_IFALIAS           = 0x14
+	IFLA_GROUP             = 0x1b
+	IFLA_NET_NS_FD         = 0x1c
+	IFLA_NUM_TX_QUEUES     = 0x1f
+	IFLA_NUM_RX_QUEUES     = 0x20
+	IFLA_GSO_MAX_SEGS      = 0x28
+	IFLA_GSO_MAX_SIZE      = 0x29
+	IFLA_GRO_MAX_SIZE      = 0x3a
+	IFLA_GSO_IPV4_MAX_SIZE = 0x3f
+	IFLA_GRO_IPV4_MAX_SIZE = 0x40
+)

@@ -12,16 +12,18 @@ import (
 	"github.com/oss-fun/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
+
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 // RtAttr is shared so it is in netlink_linux.go
 
 const (
-	SCOPE_UNIVERSE Scope = unix.RT_SCOPE_UNIVERSE
-	SCOPE_SITE     Scope = unix.RT_SCOPE_SITE
-	SCOPE_LINK     Scope = unix.RT_SCOPE_LINK
-	SCOPE_HOST     Scope = unix.RT_SCOPE_HOST
-	SCOPE_NOWHERE  Scope = unix.RT_SCOPE_NOWHERE
+	SCOPE_UNIVERSE Scope = nlunix.RT_SCOPE_UNIVERSE
+	SCOPE_SITE     Scope = nlunix.RT_SCOPE_SITE
+	SCOPE_LINK     Scope = nlunix.RT_SCOPE_LINK
+	SCOPE_HOST     Scope = nlunix.RT_SCOPE_HOST
+	SCOPE_NOWHERE  Scope = nlunix.RT_SCOPE_NOWHERE
 )
 
 func (s Scope) String() string {
@@ -42,8 +44,8 @@ func (s Scope) String() string {
 }
 
 const (
-	FLAG_ONLINK    NextHopFlag = unix.RTNH_F_ONLINK
-	FLAG_PERVASIVE NextHopFlag = unix.RTNH_F_PERVASIVE
+	FLAG_ONLINK    NextHopFlag = nlunix.RTNH_F_ONLINK
+	FLAG_PERVASIVE NextHopFlag = nlunix.RTNH_F_PERVASIVE
 )
 
 var testFlags = []flagString{

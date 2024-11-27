@@ -7,6 +7,8 @@ import (
 	"github.com/oss-fun/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
+
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 // Empty handle used by the netlink package methods
@@ -61,7 +63,7 @@ func (h *Handle) SetSocketTimeout(to time.Duration) error {
 func (h *Handle) SetSocketReceiveBufferSize(size int, force bool) error {
 	opt := unix.SO_RCVBUF
 	if force {
-		opt = unix.SO_RCVBUFFORCE
+		opt = nlunix.SO_RCVBUFFORCE
 	}
 	for _, sh := range h.sockets {
 		fd := sh.Socket.GetFd()
@@ -98,7 +100,7 @@ func (h *Handle) SetStrictCheck(state bool) error {
 		if state {
 			stateInt = 1
 		}
-		err := unix.SetsockoptInt(sh.Socket.GetFd(), unix.SOL_NETLINK, unix.NETLINK_GET_STRICT_CHK, stateInt)
+		err := unix.SetsockoptInt(sh.Socket.GetFd(), nlunix.SOL_NETLINK, nlunix.NETLINK_GET_STRICT_CHK, stateInt)
 		if err != nil {
 			return err
 		}
@@ -157,10 +159,10 @@ func (h *Handle) newNetlinkRequest(proto, flags int) *nl.NetlinkRequest {
 		return nl.NewNetlinkRequest(proto, flags)
 	}
 	return &nl.NetlinkRequest{
-		NlMsghdr: unix.NlMsghdr{
-			Len:   uint32(unix.SizeofNlMsghdr),
+		NlMsghdr: nlunix.NlMsghdr{
+			Len:   uint32(nlunix.SizeofNlMsghdr),
 			Type:  uint16(proto),
-			Flags: unix.NLM_F_REQUEST | uint16(flags),
+			Flags: nlunix.NLM_F_REQUEST | uint16(flags),
 		},
 		Sockets: h.sockets,
 	}

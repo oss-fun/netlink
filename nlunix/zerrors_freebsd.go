@@ -28,20 +28,45 @@ const (
 	ARPHRD_IEEE80211_PRISM    = 802
 	ARPHRD_IEEE80211_RADIOTAP = 803
 	ARPHRD_IEEE802154         = 804
-	NETLINK_EXT_ACK           = 0xb	
+	NETLINK_EXT_ACK           = 0xb
+	NETLINK_GET_STRICT_CHK    = 0xc
 	NETLINK_ROUTE             = 0x0
 	NETLINK_NETFILTER         = 0xc  // not supported
 	NETLINK_XFRM              = 0x6  // (not supported) PF_SETKEY
 	NLMSG_ERROR               = 0x2
 	NLMSG_DONE                = 0x3
 	NLMSG_HDRLEN              = 0x10
+	NLM_F_ACK                 = 0x4
 	NLM_F_ACK_TLVS            = 0x200
+	NLM_F_CREATE              = 0x400
+	NLM_F_DUMP                = 0x300
 	NLM_F_DUMP_INTR           = 0x10
+	NLM_F_EXCL                = 0x200
 	NLM_F_MULTI               = 0x2
 	NLM_F_REQUEST             = 0x1
 	RTA_ALIGNTO               = 0x4  // sizeof(uint32_t)
+	RTM_GETADDR               = 0x16
+	RTM_SETLINK               = 0x13 // not supported
+	RTM_NEWADDR               = 0x14 // not supported
+	RTM_NEWLINK               = 0x10 
+	RTNH_F_PERVASIVE          = 0x2  // not supported
+	RTNH_F_ONLINK             = 0x4  // not supported
 	RTPROT_BOOT               = 0x3
 	SOL_NETLINK               = 0x10e
+)
+
+/* Dammy */
+const (
+	IFF_TUN         = 0x1
+	IFF_TAP         = 0x2
+	IFF_TUN_EXCL    = 0x8000
+	IFF_ONE_QUEUE   = 0x2000 
+	IFF_VNET_HDR    = 0x4000
+	IFF_NO_PI       = 0x1000
+	IFF_MULTI_QUEUE = 0x100
+
+	TUNSETIFF     = 0x400454ca
+	TUNSETPERSIST = 0x400454ca
 )
 
 /* zerrors_freebsd_arch.go */

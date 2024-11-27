@@ -276,3 +276,9 @@ var errors = [...]string{
 	131: "state not recoverable",
 	132: "operation not possible due to RF-kill",
 }
+
+/* Dammy */
+const (
+	TUNSETGROUP = 0x400454ce
+	TUNSETOWNER = 0x400454cc
+)

@@ -9,6 +9,8 @@ import (
 	"github.com/oss-fun/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
+	
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 // AddrAdd will add an IP address to a link device.
@@ -28,7 +30,7 @@ func AddrAdd(link Link, addr *Addr) error {
 // If `addr` is an IPv4 address and the broadcast address is not given, it
 // will be automatically computed based on the IP mask if /30 or larger.
 func (h *Handle) AddrAdd(link Link, addr *Addr) error {
-	req := h.newNetlinkRequest(unix.RTM_NEWADDR, unix.NLM_F_CREATE|unix.NLM_F_EXCL|unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(unix.RTM_NEWADDR, nlunix.NLM_F_CREATE|nlunix.NLM_F_EXCL|nlunix.NLM_F_ACK)
 	return h.addrHandle(link, addr, req)
 }
 
@@ -48,7 +50,7 @@ func AddrDel(link Link, addr *Addr) error {
 // If `addr` is an IPv4 address and the broadcast address is not given, it
 // will be automatically computed based on the IP mask if /30 or larger.
 func (h *Handle) AddrDel(link Link, addr *Addr) error {
-	req := h.newNetlinkRequest(unix.RTM_DELADDR, unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(unix.RTM_DELADDR, nlunix.NLM_F_ACK)
 	return h.addrHandle(link, addr, req)
 }
 
@@ -81,7 +83,7 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		localAddrData = addr.IP.To16()
 	}
 
-	localData := nl.NewRtAttr(unix.IFA_LOCAL, localAddrData)
+	localData := nl.NewRtAttr(nlunix.IFA_LOCAL, localAddrData)
 	req.AddData(localData)
 	var peerAddrData []byte
 	if addr.Peer != nil {
@@ -94,7 +96,7 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		peerAddrData = localAddrData
 	}
 
-	addressData := nl.NewRtAttr(unix.IFA_ADDRESS, peerAddrData)
+	addressData := nl.NewRtAttr(nlunix.IFA_ADDRESS, peerAddrData)
 	req.AddData(addressData)
 
 	if addr.Flags != 0 {
@@ -103,7 +105,7 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		} else {
 			b := make([]byte, 4)
 			native.PutUint32(b, uint32(addr.Flags))
-			flagsData := nl.NewRtAttr(unix.IFA_FLAGS, b)
+			flagsData := nl.NewRtAttr(nlunix.IFA_FLAGS, b)
 			req.AddData(flagsData)
 		}
 	}
@@ -121,11 +123,11 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		}
 
 		if addr.Broadcast != nil {
-			req.AddData(nl.NewRtAttr(unix.IFA_BROADCAST, addr.Broadcast))
+			req.AddData(nl.NewRtAttr(nlunix.IFA_BROADCAST, addr.Broadcast))
 		}
 
 		if addr.Label != "" {
-			labelData := nl.NewRtAttr(unix.IFA_LABEL, nl.ZeroTerminated(addr.Label))
+			labelData := nl.NewRtAttr(nlunix.IFA_LABEL, nl.ZeroTerminated(addr.Label))
 			req.AddData(labelData)
 		}
 	}
@@ -134,14 +136,14 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 	// value should be "forever". To compensate for that, only add the attributes if at least one of the values is
 	// non-zero, which means the caller has explicitly set them
 	if addr.ValidLft > 0 || addr.PreferedLft > 0 {
-		cachedata := nl.IfaCacheInfo{unix.IfaCacheinfo{
+		cachedata := nl.IfaCacheInfo{nlunix.IfaCacheinfo{
 			Valid:    uint32(addr.ValidLft),
 			Prefered: uint32(addr.PreferedLft),
 		}}
-		req.AddData(nl.NewRtAttr(unix.IFA_CACHEINFO, cachedata.Serialize()))
+		req.AddData(nl.NewRtAttr(nlunix.IFA_CACHEINFO, cachedata.Serialize()))
 	}
 
-	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
 	return err
 }
 
@@ -156,11 +158,11 @@ func AddrList(link Link, family int) ([]Addr, error) {
 // Equivalent to: `ip addr show`.
 // The list can be filtered by link and ip family.
 func (h *Handle) AddrList(link Link, family int) ([]Addr, error) {
-	req := h.newNetlinkRequest(unix.RTM_GETADDR, unix.NLM_F_DUMP)
+	req := h.newNetlinkRequest(nlunix.RTM_GETADDR, nlunix.NLM_F_DUMP)
 	msg := nl.NewIfAddrmsg(family)
 	req.AddData(msg)
 
-	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWADDR)
+	msgs, err := req.Execute(nlunix.NETLINK_ROUTE, nlunix.RTM_NEWADDR)
 	if err != nil {
 		return nil, err
 	}
@@ -212,12 +214,12 @@ func parseAddr(m []byte) (addr Addr, family int, err error) {
 	var local, dst *net.IPNet
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
-		case unix.IFA_ADDRESS:
+		case nlunix.IFA_ADDRESS:
 			dst = &net.IPNet{
 				IP:   attr.Value,
 				Mask: net.CIDRMask(int(msg.Prefixlen), 8*len(attr.Value)),
 			}
-		case unix.IFA_LOCAL:
+		case nlunix.IFA_LOCAL:
 			// iproute2 manual:
 			// If a peer address is specified, the local address
 			// cannot have a prefix length. The network prefix is
@@ -228,13 +230,13 @@ func parseAddr(m []byte) (addr Addr, family int, err error) {
 				IP:   attr.Value,
 				Mask: net.CIDRMask(n, n),
 			}
-		case unix.IFA_BROADCAST:
+		case nlunix.IFA_BROADCAST:
 			addr.Broadcast = attr.Value
-		case unix.IFA_LABEL:
+		case nlunix.IFA_LABEL:
 			addr.Label = string(attr.Value[:len(attr.Value)-1])
-		case unix.IFA_FLAGS:
+		case nlunix.IFA_FLAGS:
 			addr.Flags = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFA_CACHEINFO:
+		case nlunix.IFA_CACHEINFO:
 			ci := nl.DeserializeIfaCacheInfo(attr.Value)
 			addr.PreferedLft = int(ci.Prefered)
 			addr.ValidLft = int(ci.Valid)
