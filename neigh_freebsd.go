@@ -9,6 +9,7 @@ import (
 	"github.com/oss-fun/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 const (
@@ -92,7 +93,7 @@ func NeighAdd(neigh *Neigh) error {
 // NeighAdd will add an IP to MAC mapping to the ARP table
 // Equivalent to: `ip neigh add ....`
 func (h *Handle) NeighAdd(neigh *Neigh) error {
-	return h.neighAdd(neigh, unix.NLM_F_CREATE|unix.NLM_F_EXCL)
+	return h.neighAdd(neigh, nlunix.NLM_F_CREATE|nlunix.NLM_F_EXCL)
 }
 
 // NeighSet will add or replace an IP to MAC mapping to the ARP table
@@ -104,7 +105,7 @@ func NeighSet(neigh *Neigh) error {
 // NeighSet will add or replace an IP to MAC mapping to the ARP table
 // Equivalent to: `ip neigh replace....`
 func (h *Handle) NeighSet(neigh *Neigh) error {
-	return h.neighAdd(neigh, unix.NLM_F_CREATE|unix.NLM_F_REPLACE)
+	return h.neighAdd(neigh, nlunix.NLM_F_CREATE|nlunix.NLM_F_REPLACE)
 }
 
 // NeighAppend will append an entry to FDB
@@ -116,7 +117,7 @@ func NeighAppend(neigh *Neigh) error {
 // NeighAppend will append an entry to FDB
 // Equivalent to: `bridge fdb append...`
 func (h *Handle) NeighAppend(neigh *Neigh) error {
-	return h.neighAdd(neigh, unix.NLM_F_CREATE|unix.NLM_F_APPEND)
+	return h.neighAdd(neigh, nlunix.NLM_F_CREATE|nlunix.NLM_F_APPEND)
 }
 
 // NeighAppend will append an entry to FDB
@@ -128,7 +129,7 @@ func neighAdd(neigh *Neigh, mode int) error {
 // NeighAppend will append an entry to FDB
 // Equivalent to: `bridge fdb append...`
 func (h *Handle) neighAdd(neigh *Neigh, mode int) error {
-	req := h.newNetlinkRequest(unix.RTM_NEWNEIGH, mode|unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlunix.RTM_NEWNEIGH, mode|nlunix.NLM_F_ACK)
 	return neighHandle(neigh, req)
 }
 
@@ -141,7 +142,7 @@ func NeighDel(neigh *Neigh) error {
 // NeighDel will delete an IP address from a link device.
 // Equivalent to: `ip addr del $addr dev $link`
 func (h *Handle) NeighDel(neigh *Neigh) error {
-	req := h.newNetlinkRequest(unix.RTM_DELNEIGH, unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlunix.RTM_DELNEIGH, nlunix.NLM_F_ACK)
 	return neighHandle(neigh, req)
 }
 
@@ -199,7 +200,7 @@ func neighHandle(neigh *Neigh, req *nl.NetlinkRequest) error {
 		req.AddData(masterData)
 	}
 
-	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
 	return err
 }
 
@@ -245,10 +246,10 @@ func NeighListExecute(msg Ndmsg) ([]Neigh, error) {
 
 // NeighListExecute returns a list of neighbour entries filtered by link, ip family, flag and state.
 func (h *Handle) NeighListExecute(msg Ndmsg) ([]Neigh, error) {
-	req := h.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
+	req := h.newNetlinkRequest(nlunix.RTM_GETNEIGH, nlunix.NLM_F_DUMP)
 	req.AddData(&msg)
 
-	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWNEIGH)
+	msgs, err := req.Execute(nlunix.NETLINK_ROUTE, nlunix.RTM_NEWNEIGH)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +309,7 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 			// BUG: Is this a bug in the netlink library?
 			// #define RTA_LENGTH(len) (RTA_ALIGN(sizeof(struct rtattr)) + (len))
 			// #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
-			attrLen := attr.Attr.Len - unix.SizeofRtAttr
+			attrLen := attr.Attr.Len - nlunix.SizeofRtAttr
 			if attrLen == 4 {
 				neigh.LLIPAddr = net.IP(attr.Value)
 			} else if attrLen == 16 {
@@ -375,9 +376,9 @@ func NeighSubscribeWithOptions(ch chan<- NeighUpdate, done <-chan struct{}, opti
 
 func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
-	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_NEIGH)
+	s, err := nl.SubscribeAt(newNs, curNs, nlunix.NETLINK_ROUTE, nlunix.RTNLGRP_NEIGH)
 	makeRequest := func(family int) error {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
+		req := pkgHandle.newNetlinkRequest(nlunix.RTM_GETNEIGH, nlunix.NLM_F_DUMP)
 		ndmsg := &Ndmsg{Family: uint8(family)}
 		req.AddData(ndmsg)
 		if err := s.Send(req); err != nil {
@@ -428,12 +429,12 @@ func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <
 				continue
 			}
 			for _, m := range msgs {
-				if m.Header.Type == unix.NLMSG_DONE {
+				if m.Header.Type == nlunix.NLMSG_DONE {
 					if listExisting {
 						// This will be called after handling AF_UNSPEC
 						// list request, we have to wait for NLMSG_DONE
 						// before making another request
-						if err := makeRequest(unix.AF_BRIDGE); err != nil {
+						if err := makeRequest(nlunix.AF_BRIDGE); err != nil {
 							if cberr != nil {
 								cberr(err)
 							}
@@ -443,7 +444,7 @@ func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <
 					}
 					continue
 				}
-				if m.Header.Type == unix.NLMSG_ERROR {
+				if m.Header.Type == nlunix.NLMSG_ERROR {
 					nError := int32(native.Uint32(m.Data[0:4]))
 					if nError == 0 {
 						continue

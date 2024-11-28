@@ -893,6 +893,24 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 	return link, err
 }
 
+// LinkByIndex finds a link by index and returns a pointer to the object.
+func LinkByIndex(index int) (Link, error) {
+	return pkgHandle.LinkByIndex(index)
+}
+
+// LinkByIndex finds a link by index and returns a pointer to the object.
+func (h *Handle) LinkByIndex(index int) (Link, error) {
+	req := h.newNetlinkRequest(nlunix.RTM_GETLINK, nlunix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(index)
+	req.AddData(msg)
+	attr := nl.NewRtAttr(nlunix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
+	req.AddData(attr)
+
+	return execGetLink(req)
+}
+
 func execGetLink(req *nl.NetlinkRequest) (Link, error) {
 	msgs, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
 	if err != nil {
