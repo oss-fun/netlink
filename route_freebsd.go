@@ -188,8 +188,8 @@ func RouteAdd(route *Route) error {
 // RouteAdd will add a route to the system.
 // Equivalent to: `ip route add $route`
 func (h *Handle) RouteAdd(route *Route) error {
-	flags := unix.NLM_F_CREATE | unix.NLM_F_EXCL | unix.NLM_F_ACK
-	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	flags := nlunix.NLM_F_CREATE | nlunix.NLM_F_EXCL | nlunix.NLM_F_ACK
+	req := h.newNetlinkRequest(nlunix.RTM_NEWROUTE, flags)
 	_, err := h.routeHandle(route, req, nl.NewRtMsg())
 	return err
 }
@@ -203,8 +203,8 @@ func RouteAppend(route *Route) error {
 // RouteAppend will append a route to the system.
 // Equivalent to: `ip route append $route`
 func (h *Handle) RouteAppend(route *Route) error {
-	flags := unix.NLM_F_CREATE | unix.NLM_F_APPEND | unix.NLM_F_ACK
-	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	flags := nlunix.NLM_F_CREATE | nlunix.NLM_F_APPEND | nlunix.NLM_F_ACK
+	req := h.newNetlinkRequest(nlunix.RTM_NEWROUTE, flags)
 	_, err := h.routeHandle(route, req, nl.NewRtMsg())
 	return err
 }
@@ -216,8 +216,8 @@ func RouteAddEcmp(route *Route) error {
 
 // RouteAddEcmp will add a route to the system.
 func (h *Handle) RouteAddEcmp(route *Route) error {
-	flags := unix.NLM_F_CREATE | unix.NLM_F_ACK
-	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	flags := nlunix.NLM_F_CREATE | nlunix.NLM_F_ACK
+	req := h.newNetlinkRequest(nlunix.RTM_NEWROUTE, flags)
 	_, err := h.routeHandle(route, req, nl.NewRtMsg())
 	return err
 }
@@ -231,8 +231,8 @@ func RouteChange(route *Route) error {
 // RouteChange will change an existing route in the system.
 // Equivalent to: `ip route change $route`
 func (h *Handle) RouteChange(route *Route) error {
-	flags := unix.NLM_F_REPLACE | unix.NLM_F_ACK
-	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	flags := nlunix.NLM_F_REPLACE | nlunix.NLM_F_ACK
+	req := h.newNetlinkRequest(nlunix.RTM_NEWROUTE, flags)
 	_, err := h.routeHandle(route, req, nl.NewRtMsg())
 	return err
 }
@@ -246,8 +246,8 @@ func RouteReplace(route *Route) error {
 // RouteReplace will add a route to the system.
 // Equivalent to: `ip route replace $route`
 func (h *Handle) RouteReplace(route *Route) error {
-	flags := unix.NLM_F_CREATE | unix.NLM_F_REPLACE | unix.NLM_F_ACK
-	req := h.newNetlinkRequest(unix.RTM_NEWROUTE, flags)
+	flags := nlunix.NLM_F_CREATE | nlunix.NLM_F_REPLACE | nlunix.NLM_F_ACK
+	req := h.newNetlinkRequest(nlunix.RTM_NEWROUTE, flags)
 	_, err := h.routeHandle(route, req, nl.NewRtMsg())
 	return err
 }
@@ -261,7 +261,7 @@ func RouteDel(route *Route) error {
 // RouteDel will delete a route from the system.
 // Equivalent to: `ip route del $route`
 func (h *Handle) RouteDel(route *Route) error {
-	req := h.newNetlinkRequest(unix.RTM_DELROUTE, unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlunix.RTM_DELROUTE, nlunix.NLM_F_ACK)
 	_, err := h.routeHandle(route, req, nl.NewRtDelMsg())
 	return err
 }
@@ -270,18 +270,18 @@ func (h *Handle) routeHandle(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg
 	if err := h.prepareRouteReq(route, req, msg); err != nil {
 		return nil, err
 	}
-	return req.Execute(unix.NETLINK_ROUTE, 0)
+	return req.Execute(nlunix.NETLINK_ROUTE, 0)
 }
 
 func (h *Handle) routeHandleIter(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg, f func(msg []byte) bool) error {
 	if err := h.prepareRouteReq(route, req, msg); err != nil {
 		return err
 	}
-	return req.ExecuteIter(unix.NETLINK_ROUTE, 0, f)
+	return req.ExecuteIter(nlunix.NETLINK_ROUTE, 0, f)
 }
 
 func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.RtMsg) error {
-	if req.NlMsghdr.Type != unix.RTM_GETROUTE && (route.Dst == nil || route.Dst.IP == nil) && route.Src == nil && route.Gw == nil && route.MPLSDst == nil {
+	if req.NlMsghdr.Type != nlunix.RTM_GETROUTE && (route.Dst == nil || route.Dst.IP == nil) && route.Src == nil && route.Gw == nil && route.MPLSDst == nil {
 		return fmt.Errorf("either Dst.IP, Src.IP or Gw must be set")
 	}
 
@@ -303,7 +303,7 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	} else if route.MPLSDst != nil {
 		family = nl.FAMILY_MPLS
 		msg.Dst_len = uint8(20)
-		msg.Type = unix.RTN_UNICAST
+		msg.Type = nlunix.RTN_UNICAST
 		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_DST, nl.EncodeMPLSStack(*route.MPLSDst)))
 	}
 
@@ -315,22 +315,22 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 		if err != nil {
 			return err
 		}
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_NEWDST, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_NEWDST, buf))
 	}
 
 	if route.Encap != nil {
 		buf := make([]byte, 2)
 		native.PutUint16(buf, uint16(route.Encap.Type()))
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_ENCAP_TYPE, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_ENCAP_TYPE, buf))
 		buf, err := route.Encap.Encode()
 		if err != nil {
 			return err
 		}
 		switch route.Encap.Type() {
 		case nl.LWTUNNEL_ENCAP_BPF:
-			rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_ENCAP|unix.NLA_F_NESTED, buf))
+			rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_ENCAP|nlunix.NLA_F_NESTED, buf))
 		default:
-			rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_ENCAP, buf))
+			rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_ENCAP, buf))
 		}
 
 	}
@@ -348,7 +348,7 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 			srcData = route.Src.To16()
 		}
 		// The commonly used src ip for routes is actually PREFSRC
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_PREFSRC, srcData))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_PREFSRC, srcData))
 	}
 
 	if route.Gw != nil {
@@ -371,14 +371,14 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 		if err != nil {
 			return fmt.Errorf("failed to encode RTA_VIA: %v", err)
 		}
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_VIA, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_VIA, buf))
 	}
 
 	if len(route.MultiPath) > 0 {
 		buf := []byte{}
 		for _, nh := range route.MultiPath {
 			rtnh := &nl.RtNexthop{
-				RtNexthop: unix.RtNexthop{
+				RtNexthop: nlunix.RtNexthop{
 					Hops:    uint8(nh.Hops),
 					Ifindex: int32(nh.LinkIndex),
 					Flags:   uint8(nh.Flags),
@@ -404,37 +404,37 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 				if err != nil {
 					return err
 				}
-				children = append(children, nl.NewRtAttr(unix.RTA_NEWDST, buf))
+				children = append(children, nl.NewRtAttr(nlunix.RTA_NEWDST, buf))
 			}
 			if nh.Encap != nil {
 				buf := make([]byte, 2)
 				native.PutUint16(buf, uint16(nh.Encap.Type()))
-				children = append(children, nl.NewRtAttr(unix.RTA_ENCAP_TYPE, buf))
+				children = append(children, nl.NewRtAttr(nlunix.RTA_ENCAP_TYPE, buf))
 				buf, err := nh.Encap.Encode()
 				if err != nil {
 					return err
 				}
-				children = append(children, nl.NewRtAttr(unix.RTA_ENCAP, buf))
+				children = append(children, nl.NewRtAttr(nlunix.RTA_ENCAP, buf))
 			}
 			if nh.Via != nil {
 				buf, err := nh.Via.Encode()
 				if err != nil {
 					return err
 				}
-				children = append(children, nl.NewRtAttr(unix.RTA_VIA, buf))
+				children = append(children, nl.NewRtAttr(nlunix.RTA_VIA, buf))
 			}
 			rtnh.Children = children
 			buf = append(buf, rtnh.Serialize()...)
 		}
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_MULTIPATH, buf))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_MULTIPATH, buf))
 	}
 
 	if route.Table > 0 {
 		if route.Table >= 256 {
-			msg.Table = unix.RT_TABLE_UNSPEC
+			msg.Table = nlunix.RT_TABLE_UNSPEC
 			b := make([]byte, 4)
 			native.PutUint32(b, uint32(route.Table))
-			rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_TABLE, b))
+			rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_TABLE, b))
 		} else {
 			msg.Table = uint8(route.Table)
 		}
@@ -443,12 +443,12 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	if route.Priority > 0 {
 		b := make([]byte, 4)
 		native.PutUint32(b, uint32(route.Priority))
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_PRIORITY, b))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_PRIORITY, b))
 	}
 	if route.Realm > 0 {
 		b := make([]byte, 4)
 		native.PutUint32(b, uint32(route.Realm))
-		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_FLOW, b))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(nlunix.RTA_FLOW, b))
 	}
 	if route.Tos > 0 {
 		msg.Tos = uint8(route.Tos)
@@ -463,31 +463,31 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	var metrics []*nl.RtAttr
 	if route.MTU > 0 {
 		b := nl.Uint32Attr(uint32(route.MTU))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_MTU, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_MTU, b))
 	}
 	if route.Window > 0 {
 		b := nl.Uint32Attr(uint32(route.Window))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_WINDOW, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_WINDOW, b))
 	}
 	if route.Rtt > 0 {
 		b := nl.Uint32Attr(uint32(route.Rtt))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_RTT, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_RTT, b))
 	}
 	if route.RttVar > 0 {
 		b := nl.Uint32Attr(uint32(route.RttVar))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_RTTVAR, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_RTTVAR, b))
 	}
 	if route.Ssthresh > 0 {
 		b := nl.Uint32Attr(uint32(route.Ssthresh))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_SSTHRESH, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_SSTHRESH, b))
 	}
 	if route.Cwnd > 0 {
 		b := nl.Uint32Attr(uint32(route.Cwnd))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_CWND, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_CWND, b))
 	}
 	if route.AdvMSS > 0 {
 		b := nl.Uint32Attr(uint32(route.AdvMSS))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_ADVMSS, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_ADVMSS, b))
 	}
 	if route.Reordering > 0 {
 		b := nl.Uint32Attr(uint32(route.Reordering))
