@@ -826,13 +826,13 @@ func (h *Handle) LinkDel(link Link) error {
 
 	h.ensureIndex(base)
 
-	req := h.newNetlinkRequest(unix.RTM_DELLINK, unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlunix.RTM_DELLINK, nlunix.NLM_F_ACK)
 
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	msg.Index = int32(base.Index)
 	req.AddData(msg)
 
-	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
 	return err
 }
 
@@ -868,17 +868,17 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 		return h.linkByNameDump(name)
 	}
 
-	req := h.newNetlinkRequest(unix.RTM_GETLINK, unix.NLM_F_ACK)
+	req := h.newNetlinkRequest(nlunix.RTM_GETLINK, nlunix.NLM_F_ACK)
 
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	req.AddData(msg)
 
-	attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
+	attr := nl.NewRtAttr(nlunix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
 	req.AddData(attr)
 
-	nameData := nl.NewRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(name))
+	nameData := nl.NewRtAttr(nlunix.IFLA_IFNAME, nl.ZeroTerminated(name))
 	if len(name) > 15 {
-		nameData = nl.NewRtAttr(unix.IFLA_ALT_IFNAME, nl.ZeroTerminated(name))
+		nameData = nl.NewRtAttr(nlunix.IFLA_ALT_IFNAME, nl.ZeroTerminated(name))
 	}
 	req.AddData(nameData)
 
@@ -894,7 +894,7 @@ func (h *Handle) LinkByName(name string) (Link, error) {
 }
 
 func execGetLink(req *nl.NetlinkRequest) (Link, error) {
-	msgs, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	msgs, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
 	if err != nil {
 		if errno, ok := err.(syscall.Errno); ok {
 			if errno == unix.ENODEV {
@@ -949,7 +949,7 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 	)
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
-		case unix.IFLA_LINKINFO:
+		case nlunix.IFLA_LINKINFO:
 			infos, err := nl.ParseRouteAttr(attr.Value)
 			if err != nil {
 				return nil, err
@@ -1104,7 +1104,7 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 					}
 				}
 			}
-		case unix.IFLA_ADDRESS:
+		case nlunix.IFLA_ADDRESS:
 			var nonzero bool
 			for _, b := range attr.Value {
 				if b != 0 {
@@ -1114,39 +1114,39 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 			if nonzero {
 				base.HardwareAddr = attr.Value[:]
 			}
-		case unix.IFLA_IFNAME:
+		case nlunix.IFLA_IFNAME:
 			base.Name = string(attr.Value[:len(attr.Value)-1])
-		case unix.IFLA_MTU:
+		case nlunix.IFLA_MTU:
 			base.MTU = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_PROMISCUITY:
+		case nlunix.IFLA_PROMISCUITY:
 			base.Promisc = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_LINK:
+		case nlunix.IFLA_LINK:
 			base.ParentIndex = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_MASTER:
+		case nlunix.IFLA_MASTER:
 			base.MasterIndex = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_TXQLEN:
+		case nlunix.IFLA_TXQLEN:
 			base.TxQLen = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_IFALIAS:
+		case nlunix.IFLA_IFALIAS:
 			base.Alias = string(attr.Value[:len(attr.Value)-1])
-		case unix.IFLA_STATS:
+		case nlunix.IFLA_STATS:
 			stats32 = new(LinkStatistics32)
 			if err := binary.Read(bytes.NewBuffer(attr.Value[:]), nl.NativeEndian(), stats32); err != nil {
 				return nil, err
 			}
-		case unix.IFLA_STATS64:
+		case nlunix.IFLA_STATS64:
 			stats64 = new(LinkStatistics64)
 			if err := binary.Read(bytes.NewBuffer(attr.Value[:]), nl.NativeEndian(), stats64); err != nil {
 				return nil, err
 			}
-		case unix.IFLA_XDP:
+		case nlunix.IFLA_XDP:
 			xdp, err := parseLinkXdp(attr.Value[:])
 			if err != nil {
 				return nil, err
 			}
 			base.Xdp = xdp
-		case unix.IFLA_PROTINFO | unix.NLA_F_NESTED:
-			if hdr != nil && hdr.Type == unix.RTM_NEWLINK &&
-				msg.Family == unix.AF_BRIDGE {
+		case nlunix.IFLA_PROTINFO | nlunix.NLA_F_NESTED:
+			if hdr != nil && hdr.Type == nlunix.RTM_NEWLINK &&
+				msg.Family == nlunix.AF_BRIDGE {
 				attrs, err := nl.ParseRouteAttr(attr.Value[:])
 				if err != nil {
 					return nil, err
@@ -1154,7 +1154,7 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 				protinfo := parseProtinfo(attrs)
 				base.Protinfo = &protinfo
 			}
-		case unix.IFLA_PROP_LIST | unix.NLA_F_NESTED:
+		case nlunix.IFLA_PROP_LIST | nlunix.NLA_F_NESTED:
 			attrs, err := nl.ParseRouteAttr(attr.Value[:])
 			if err != nil {
 				return nil, err
@@ -1162,31 +1162,31 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 
 			base.AltNames = []string{}
 			for _, attr := range attrs {
-				if attr.Attr.Type == unix.IFLA_ALT_IFNAME {
+				if attr.Attr.Type == nlunix.IFLA_ALT_IFNAME {
 					base.AltNames = append(base.AltNames, nl.BytesToString(attr.Value))
 				}
 			}
-		case unix.IFLA_OPERSTATE:
+		case nlunix.IFLA_OPERSTATE:
 			base.OperState = LinkOperState(uint8(attr.Value[0]))
-		case unix.IFLA_PHYS_SWITCH_ID:
+		case nlunix.IFLA_PHYS_SWITCH_ID:
 			base.PhysSwitchID = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_LINK_NETNSID:
+		case nlunix.IFLA_LINK_NETNSID:
 			base.NetNsID = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_TSO_MAX_SEGS:
+		case nlunix.IFLA_TSO_MAX_SEGS:
 			base.TSOMaxSegs = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_TSO_MAX_SIZE:
+		case nlunix.IFLA_TSO_MAX_SIZE:
 			base.TSOMaxSize = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_GSO_MAX_SEGS:
+		case nlunix.IFLA_GSO_MAX_SEGS:
 			base.GSOMaxSegs = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_GSO_MAX_SIZE:
+		case nlunix.IFLA_GSO_MAX_SIZE:
 			base.GSOMaxSize = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_GRO_MAX_SIZE:
+		case nlunix.IFLA_GRO_MAX_SIZE:
 			base.GROMaxSize = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_GSO_IPV4_MAX_SIZE:
+		case nlunix.IFLA_GSO_IPV4_MAX_SIZE:
 			base.GSOIPv4MaxSize = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_GRO_IPV4_MAX_SIZE:
+		case nlunix.IFLA_GRO_IPV4_MAX_SIZE:
 			base.GROIPv4MaxSize = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_VFINFO_LIST:
+		case nlunix.IFLA_VFINFO_LIST:
 			data, err := nl.ParseRouteAttr(attr.Value)
 			if err != nil {
 				return nil, err
@@ -1196,13 +1196,13 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 				return nil, err
 			}
 			base.Vfs = vfs
-		case unix.IFLA_NUM_TX_QUEUES:
+		case nlunix.IFLA_NUM_TX_QUEUES:
 			base.NumTxQueues = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_NUM_RX_QUEUES:
+		case nlunix.IFLA_NUM_RX_QUEUES:
 			base.NumRxQueues = int(native.Uint32(attr.Value[0:4]))
-		case unix.IFLA_GROUP:
+		case nlunix.IFLA_GROUP:
 			base.Group = native.Uint32(attr.Value[0:4])
-		case unix.IFLA_PERM_ADDRESS:
+		case nlunix.IFLA_PERM_ADDRESS:
 			for _, b := range attr.Value {
 				if b != 0 {
 					base.PermHWAddr = attr.Value[:]
@@ -1234,14 +1234,14 @@ func LinkDeserialize(hdr *nlunix.NlMsghdr, m []byte) (Link, error) {
 			ifname := tuntap.Attrs().Name
 			if flags, err := readSysPropAsInt64(ifname, "tun_flags"); err == nil {
 
-				if flags&unix.IFF_TUN != 0 {
-					tuntap.Mode = unix.IFF_TUN
-				} else if flags&unix.IFF_TAP != 0 {
-					tuntap.Mode = unix.IFF_TAP
+				if flags&nlunix.IFF_TUN != 0 {
+					tuntap.Mode = nlunix.IFF_TUN
+				} else if flags&nlunix.IFF_TAP != 0 {
+					tuntap.Mode = nlunix.IFF_TAP
 				}
 
 				tuntap.NonPersist = false
-				if flags&unix.IFF_PERSIST == 0 {
+				if flags&nlunix.IFF_PERSIST == 0 {
 					tuntap.NonPersist = true
 				}
 			}
@@ -1287,14 +1287,14 @@ func LinkList() ([]Link, error) {
 func (h *Handle) LinkList() ([]Link, error) {
 	// NOTE(vish): This duplicates functionality in net/iface_linux.go, but we need
 	//             to get the message ourselves to parse link type.
-	req := h.newNetlinkRequest(unix.RTM_GETLINK, unix.NLM_F_DUMP)
+	req := h.newNetlinkRequest(nlunix.RTM_GETLINK, nlunix.NLM_F_DUMP)
 
 	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 	req.AddData(msg)
-	attr := nl.NewRtAttr(unix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
+	attr := nl.NewRtAttr(nlunix.IFLA_EXT_MASK, nl.Uint32Attr(nl.RTEXT_FILTER_VF))
 	req.AddData(attr)
 
-	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWLINK)
+	msgs, err := req.Execute(nlunix.NETLINK_ROUTE, nlunix.RTM_NEWLINK)
 	if err != nil {
 		return nil, err
 	}
@@ -1355,7 +1355,7 @@ func LinkSubscribeWithOptions(ch chan<- LinkUpdate, done <-chan struct{}, option
 
 func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
-	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_LINK)
+	s, err := nl.SubscribeAt(newNs, curNs, nlunix.NETLINK_ROUTE, nlunix.RTNLGRP_LINK)
 	if err != nil {
 		return err
 	}
@@ -1377,8 +1377,8 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 		}()
 	}
 	if listExisting {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETLINK,
-			unix.NLM_F_DUMP)
+		req := pkgHandle.newNetlinkRequest(nlunix.RTM_GETLINK,
+			nlunix.NLM_F_DUMP)
 		msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 		req.AddData(msg)
 		if err := s.Send(req); err != nil {
@@ -1403,10 +1403,10 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 				continue
 			}
 			for _, m := range msgs {
-				if m.Header.Type == unix.NLMSG_DONE {
+				if m.Header.Type == nlunix.NLMSG_DONE {
 					continue
 				}
-				if m.Header.Type == unix.NLMSG_ERROR {
+				if m.Header.Type == nlunix.NLMSG_ERROR {
 					error := int32(native.Uint32(m.Data[0:4]))
 					if error == 0 {
 						continue
@@ -1445,7 +1445,7 @@ func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
 	data.AddRtAttr(nl.IFLA_NETKIT_POLICY, nl.Uint32Attr(uint32(nk.Policy)))
 	data.AddRtAttr(nl.IFLA_NETKIT_PEER_POLICY, nl.Uint32Attr(uint32(nk.PeerPolicy)))
 
-	if (flag & unix.NLM_F_EXCL) == 0 {
+	if (flag & nlunix.NLM_F_EXCL) == 0 {
 		// Modifying peer link attributes will not take effect
 		return nil
 	}
@@ -1461,29 +1461,29 @@ func addNetkitAttrs(nk *Netkit, linkInfo *nl.RtAttr, flag int) error {
 	}
 	peer.AddChild(msg)
 	if nk.peerLinkAttrs.Name != "" {
-		peer.AddRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(nk.peerLinkAttrs.Name))
+		peer.AddRtAttr(nlunix.IFLA_IFNAME, nl.ZeroTerminated(nk.peerLinkAttrs.Name))
 	}
 	if nk.peerLinkAttrs.MTU > 0 {
-		peer.AddRtAttr(unix.IFLA_MTU, nl.Uint32Attr(uint32(nk.peerLinkAttrs.MTU)))
+		peer.AddRtAttr(nlunix.IFLA_MTU, nl.Uint32Attr(uint32(nk.peerLinkAttrs.MTU)))
 	}
 	if nk.peerLinkAttrs.GSOMaxSegs > 0 {
-		peer.AddRtAttr(unix.IFLA_GSO_MAX_SEGS, nl.Uint32Attr(nk.peerLinkAttrs.GSOMaxSegs))
+		peer.AddRtAttr(nlunix.IFLA_GSO_MAX_SEGS, nl.Uint32Attr(nk.peerLinkAttrs.GSOMaxSegs))
 	}
 	if nk.peerLinkAttrs.GSOMaxSize > 0 {
-		peer.AddRtAttr(unix.IFLA_GSO_MAX_SIZE, nl.Uint32Attr(nk.peerLinkAttrs.GSOMaxSize))
+		peer.AddRtAttr(nlunix.IFLA_GSO_MAX_SIZE, nl.Uint32Attr(nk.peerLinkAttrs.GSOMaxSize))
 	}
 	if nk.peerLinkAttrs.GSOIPv4MaxSize > 0 {
-		peer.AddRtAttr(unix.IFLA_GSO_IPV4_MAX_SIZE, nl.Uint32Attr(nk.peerLinkAttrs.GSOIPv4MaxSize))
+		peer.AddRtAttr(nlunix.IFLA_GSO_IPV4_MAX_SIZE, nl.Uint32Attr(nk.peerLinkAttrs.GSOIPv4MaxSize))
 	}
 	if nk.peerLinkAttrs.GROIPv4MaxSize > 0 {
-		peer.AddRtAttr(unix.IFLA_GRO_IPV4_MAX_SIZE, nl.Uint32Attr(nk.peerLinkAttrs.GROIPv4MaxSize))
+		peer.AddRtAttr(nlunix.IFLA_GRO_IPV4_MAX_SIZE, nl.Uint32Attr(nk.peerLinkAttrs.GROIPv4MaxSize))
 	}
 	if nk.peerLinkAttrs.Namespace != nil {
 		switch ns := nk.peerLinkAttrs.Namespace.(type) {
 		case NsPid:
-			peer.AddRtAttr(unix.IFLA_NET_NS_PID, nl.Uint32Attr(uint32(ns)))
+			peer.AddRtAttr(nlunix.IFLA_NET_NS_PID, nl.Uint32Attr(uint32(ns)))
 		case NsFd:
-			peer.AddRtAttr(unix.IFLA_NET_NS_FD, nl.Uint32Attr(uint32(ns)))
+			peer.AddRtAttr(nlunix.IFLA_NET_NS_FD, nl.Uint32Attr(uint32(ns)))
 		}
 	}
 	return nil
@@ -2054,7 +2054,7 @@ func parseGretunData(link Link, data []nlsyscall.NetlinkRouteAttr) {
 }
 
 func addXdpAttrs(xdp *LinkXdp, req *nl.NetlinkRequest) {
-	attrs := nl.NewRtAttr(unix.IFLA_XDP|unix.NLA_F_NESTED, nil)
+	attrs := nl.NewRtAttr(nlunix.IFLA_XDP|nlunix.NLA_F_NESTED, nil)
 	b := make([]byte, 4)
 	native.PutUint32(b, uint32(xdp.Fd))
 	attrs.AddRtAttr(nl.IFLA_XDP_FD, b)

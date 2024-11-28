@@ -132,6 +132,60 @@ func NewLinkAttrs() LinkAttrs {
 
 type LinkStatistics LinkStatistics64
 
+type LinkStatistics32 struct {
+	RxPackets         uint32
+	TxPackets         uint32
+	RxBytes           uint32
+	TxBytes           uint32
+	RxErrors          uint32
+	TxErrors          uint32
+	RxDropped         uint32
+	TxDropped         uint32
+	Multicast         uint32
+	Collisions        uint32
+	RxLengthErrors    uint32
+	RxOverErrors      uint32
+	RxCrcErrors       uint32
+	RxFrameErrors     uint32
+	RxFifoErrors      uint32
+	RxMissedErrors    uint32
+	TxAbortedErrors   uint32
+	TxCarrierErrors   uint32
+	TxFifoErrors      uint32
+	TxHeartbeatErrors uint32
+	TxWindowErrors    uint32
+	RxCompressed      uint32
+	TxCompressed      uint32
+}
+
+func (s32 LinkStatistics32) to64() *LinkStatistics64 {
+	return &LinkStatistics64{
+		RxPackets:         uint64(s32.RxPackets),
+		TxPackets:         uint64(s32.TxPackets),
+		RxBytes:           uint64(s32.RxBytes),
+		TxBytes:           uint64(s32.TxBytes),
+		RxErrors:          uint64(s32.RxErrors),
+		TxErrors:          uint64(s32.TxErrors),
+		RxDropped:         uint64(s32.RxDropped),
+		TxDropped:         uint64(s32.TxDropped),
+		Multicast:         uint64(s32.Multicast),
+		Collisions:        uint64(s32.Collisions),
+		RxLengthErrors:    uint64(s32.RxLengthErrors),
+		RxOverErrors:      uint64(s32.RxOverErrors),
+		RxCrcErrors:       uint64(s32.RxCrcErrors),
+		RxFrameErrors:     uint64(s32.RxFrameErrors),
+		RxFifoErrors:      uint64(s32.RxFifoErrors),
+		RxMissedErrors:    uint64(s32.RxMissedErrors),
+		TxAbortedErrors:   uint64(s32.TxAbortedErrors),
+		TxCarrierErrors:   uint64(s32.TxCarrierErrors),
+		TxFifoErrors:      uint64(s32.TxFifoErrors),
+		TxHeartbeatErrors: uint64(s32.TxHeartbeatErrors),
+		TxWindowErrors:    uint64(s32.TxWindowErrors),
+		RxCompressed:      uint64(s32.RxCompressed),
+		TxCompressed:      uint64(s32.TxCompressed),
+	}
+}
+
 type LinkStatistics64 struct {
 	RxPackets         uint64
 	TxPackets         uint64

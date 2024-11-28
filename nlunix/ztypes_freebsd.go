@@ -87,6 +87,43 @@ const (
 	SizeofRtNexthop    = 0x8
 )
 
+const (
+	RTNLGRP_NONE          = 0x0
+	RTNLGRP_LINK          = 0x1
+	RTNLGRP_NOTIFY        = 0x2
+	RTNLGRP_NEIGH         = 0x3
+	RTNLGRP_TC            = 0x4
+	RTNLGRP_IPV4_IFADDR   = 0x5
+	RTNLGRP_IPV4_MROUTE   = 0x6
+	RTNLGRP_IPV4_ROUTE    = 0x7
+	RTNLGRP_IPV4_RULE     = 0x8
+	RTNLGRP_IPV6_IFADDR   = 0x9
+	RTNLGRP_IPV6_MROUTE   = 0xa
+	RTNLGRP_IPV6_ROUTE    = 0xb
+	RTNLGRP_IPV6_IFINFO   = 0xc
+	RTNLGRP_DECnet_IFADDR = 0xd
+	RTNLGRP_NOP2          = 0xe
+	RTNLGRP_DECnet_ROUTE  = 0xf
+	RTNLGRP_DECnet_RULE   = 0x10
+	RTNLGRP_NOP4          = 0x11
+	RTNLGRP_IPV6_PREFIX   = 0x12
+	RTNLGRP_IPV6_RULE     = 0x13
+	RTNLGRP_ND_USEROPT    = 0x14
+	RTNLGRP_PHONET_IFADDR = 0x15
+	RTNLGRP_PHONET_ROUTE  = 0x16
+	RTNLGRP_DCB           = 0x17
+	RTNLGRP_IPV4_NETCONF  = 0x18
+	RTNLGRP_IPV6_NETCONF  = 0x19
+	RTNLGRP_MDB           = 0x1a
+	RTNLGRP_MPLS_ROUTE    = 0x1b
+	RTNLGRP_NSID          = 0x1c
+	RTNLGRP_MPLS_NETCONF  = 0x1d
+	RTNLGRP_IPV4_MROUTE_R = 0x1e
+	RTNLGRP_IPV6_MROUTE_R = 0x1f
+	RTNLGRP_NEXTHOP       = 0x20
+	RTNLGRP_BRVLAN        = 0x21
+)
+
 type NlMsghdr struct {
 	Len   uint32
 	Type  uint16
@@ -148,17 +185,33 @@ const (
 	IFLA_IFNAME            = 0x3
 	IFLA_MTU               = 0x4
 	IFLA_LINK              = 0x5
+	IFLA_STATS             = 0x7
+	IFLA_MASTER            = 0xa
 	IFLA_TXQLEN            = 0xd
+	IFLA_PROTINFO          = 0xc
+	IFLA_OPERSTATE         = 0x10
 	IFLA_LINKINFO          = 0x12
 	IFLA_NET_NS_PID        = 0x13
 	IFLA_IFALIAS           = 0x14
+	IFLA_VFINFO_LIST       = 0x16
+	IFLA_STATS64           = 0x17
 	IFLA_GROUP             = 0x1b
 	IFLA_NET_NS_FD         = 0x1c
+	IFLA_EXT_MASK          = 0x1d
+	IFLA_PROMISCUITY       = 0x1e
 	IFLA_NUM_TX_QUEUES     = 0x1f
 	IFLA_NUM_RX_QUEUES     = 0x20
+	IFLA_PHYS_SWITCH_ID    = 0x24
+	IFLA_LINK_NETNSID      = 0x25
 	IFLA_GSO_MAX_SEGS      = 0x28
 	IFLA_GSO_MAX_SIZE      = 0x29
+	IFLA_XDP               = 0x2b
+	IFLA_PROP_LIST         = 0x34
+	IFLA_ALT_IFNAME        = 0x35
+	IFLA_PERM_ADDRESS      = 0x36
 	IFLA_GRO_MAX_SIZE      = 0x3a
+	IFLA_TSO_MAX_SIZE      = 0x3b
+	IFLA_TSO_MAX_SEGS      = 0x3c
 	IFLA_GSO_IPV4_MAX_SIZE = 0x3f
 	IFLA_GRO_IPV4_MAX_SIZE = 0x40
 )

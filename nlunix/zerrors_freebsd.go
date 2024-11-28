@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	AF_BRIDGE                 = 0x7  // Dammy
 	AF_MPLS                   = 0x1c // Dammy unix.AF_MPLS
 	AF_NETLINK                = 38
 	ARPHRD_ETHER              = 1
@@ -36,6 +37,7 @@ const (
 	NLMSG_ERROR               = 0x2
 	NLMSG_DONE                = 0x3
 	NLMSG_HDRLEN              = 0x10
+	NLA_F_NESTED              = 0x8000
 	NLM_F_ACK                 = 0x4
 	NLM_F_ACK_TLVS            = 0x200
 	NLM_F_CREATE              = 0x400
@@ -45,7 +47,9 @@ const (
 	NLM_F_MULTI               = 0x2
 	NLM_F_REQUEST             = 0x1
 	RTA_ALIGNTO               = 0x4  // sizeof(uint32_t)
+	RTM_DELLINK               = 0x11
 	RTM_GETADDR               = 0x16
+	RTM_GETLINK               = 0x12	
 	RTM_SETLINK               = 0x13 // not supported
 	RTM_NEWADDR               = 0x14 // not supported
 	RTM_NEWLINK               = 0x10 
@@ -64,6 +68,7 @@ const (
 	IFF_VNET_HDR    = 0x4000
 	IFF_NO_PI       = 0x1000
 	IFF_MULTI_QUEUE = 0x100
+	IFF_PERSIST     = 0x800
 
 	TUNSETIFF     = 0x400454ca
 	TUNSETPERSIST = 0x400454ca

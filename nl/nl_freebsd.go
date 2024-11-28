@@ -70,6 +70,14 @@ func NativeEndian() binary.ByteOrder {
 	return nativeEndian
 }
 
+// Byte swap a 16 bit value if we aren't big endian
+func Swap16(i uint16) uint16 {
+	if NativeEndian() == binary.BigEndian {
+		return i
+	}
+	return (i&0xff00)>>8 | (i&0xff)<<8
+}
+
 const (
 	NLMSGERR_ATTR_UNUSED = 0
 	NLMSGERR_ATTR_MSG    = 1
