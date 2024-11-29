@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	AF_BRIDGE                 = 0x7  // Dammy
-	AF_MPLS                   = 0x1c // Dammy unix.AF_MPLS
+	AF_BRIDGE                 = 0x7    // Dammy
+	AF_MPLS                   = 0x1c   // Dammy unix.AF_MPLS
 	AF_NETLINK                = 38
 	ARPHRD_ETHER              = 1
 	ARPHRD_IEEE802            = 6
@@ -32,8 +32,8 @@ const (
 	NETLINK_EXT_ACK           = 0xb
 	NETLINK_GET_STRICT_CHK    = 0xc
 	NETLINK_ROUTE             = 0x0
-	NETLINK_NETFILTER         = 0xc  // not supported
-	NETLINK_XFRM              = 0x6  // (not supported) PF_SETKEY
+	NETLINK_NETFILTER         = 0xc    // not supported
+	NETLINK_XFRM              = 0x6    // (not supported) PF_SETKEY
 	NLMSG_ERROR               = 0x2
 	NLMSG_DONE                = 0x3
 	NLMSG_HDRLEN              = 0x10
@@ -49,13 +49,22 @@ const (
 	NLM_F_REPLACE             = 0x100
 	NLM_F_REQUEST             = 0x1
 	RTAX_MTU                  = 0x2
-	RTAX_WINDOW               = 0x3  // not supported
-	RTAX_RTT                  = 0x4  // not supported
-	RTAX_RTTVAR               = 0x5  // not supported
-	RTAX_SSTHRESH             = 0x6  // not supported
-	RTAX_CWND                 = 0x7  // not supported
-	RTAX_ADVMSS               = 0x8  // not supported
-	RTA_ALIGNTO               = 0x4  // sizeof(uint32_t)
+	RTAX_WINDOW               = 0x3    // not supported
+	RTAX_RTT                  = 0x4    // not supported
+	RTAX_RTTVAR               = 0x5    // not supported
+	RTAX_SSTHRESH             = 0x6    // not supported
+	RTAX_CWND                 = 0x7    // not supported
+	RTAX_ADVMSS               = 0x8    // not supported
+	RTAX_REORDERING           = 0x9    // not supported
+	RTAX_HOPLIMIT             = 0xa    // not supported
+	RTAX_INITCWND             = 0xb    // not supported
+	RTAX_FEATURES             = 0xc    // not supported
+	RTAX_RTO_MIN              = 0xd    // not supported
+	RTAX_INITRWND             = 0xe    // not supported
+	RTAX_QUICKACK             = 0xf    // not supported
+	RTAX_CC_ALGO              = 0x10   // not supported
+	RTAX_FASTOPEN_NO_COOKIE   = 0x11   // not supported
+	RTA_ALIGNTO               = 0x4    // sizeof(uint32_t)
 	RTM_DELLINK               = 0x11
 	RTM_DELROUTE              = 0x19
 	RTM_DELNEIGH              = 0x1d
@@ -63,14 +72,39 @@ const (
 	RTM_GETLINK               = 0x12
 	RTM_GETNEIGH              = 0x1e
 	RTM_GETROUTE              = 0x1a	
-	RTM_SETLINK               = 0x13 // not supported
-	RTM_NEWADDR               = 0x14 // not supported
+	RTM_SETLINK               = 0x13   // not supported
+	RTM_NEWADDR               = 0x14   // not supported
 	RTM_NEWLINK               = 0x10
 	RTM_NEWNEIGH              = 0x1c
 	RTM_NEWROUTE              = 0x18
-	RTNH_F_PERVASIVE          = 0x2  // not supported
-	RTNH_F_ONLINK             = 0x4  // not supported
+	RTM_F_CLONED              = 0x200  // not supported
+	RTM_F_FIB_MATCH           = 0x2000 // not supported
+	RTM_F_LOOKUP_TABLE        = 0x1000 // not supported
+	RTNH_F_PERVASIVE          = 0x2    // not supported
+	RTNH_F_ONLINK             = 0x4    // not supported
+	RTPROT_BABEL              = 0x2a
+	RTPROT_BGP                = 0xba
+	RTPROT_BIRD               = 0xc
 	RTPROT_BOOT               = 0x3
+	RTPROT_DHCP               = 0x10
+	RTPROT_DNROUTED           = 0xd
+	RTPROT_EIGRP              = 0xc0
+	RTPROT_GATED              = 0x8
+	RTPROT_ISIS               = 0xbb
+	RTPROT_KEEPALIVED         = 0x12
+	RTPROT_KERNEL             = 0x2
+	RTPROT_MROUTED            = 0x11
+	RTPROT_MRT                = 0xa
+	RTPROT_NTK                = 0xf
+	RTPROT_OPENR              = 0x63
+	RTPROT_OSPF               = 0xbc
+	RTPROT_RA                 = 0x9
+	RTPROT_REDIRECT           = 0x1
+	RTPROT_RIP                = 0xbd
+	RTPROT_STATIC             = 0x4
+	RTPROT_UNSPEC             = 0x0
+	RTPROT_XORP               = 0xe
+	RTPROT_ZEBRA              = 0xb	
 	SOL_NETLINK               = 0x10e
 )
 

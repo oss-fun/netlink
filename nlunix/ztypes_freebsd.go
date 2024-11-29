@@ -75,17 +75,23 @@ const (
 	RT_SCOPE_LINK      = 0xfd
 	RT_SCOPE_HOST      = 0xfe
 	RT_SCOPE_NOWHERE   = 0xff
-	RT_TABLE_MAIN      = 0x0  // RT_DEFAULT_FIB
-	RT_TABLE_UNSPEC    = 0x0  // RT_ALL_FIBS
+	RT_TABLE_MAIN      = 0x0  // RT_DEFAULT_FIB = 0x0
+	RT_TABLE_UNSPEC    = 0x0  // RT_ALL_FIBS = 0xffff
+	RTA_SRC            = 0x2	
+	RTA_IIF            = 0x3  // not supported
+	RTA_OIF            = 0x4
 	RTA_PRIORITY       = 0x6  // not supported
 	RTA_PREFSRC        = 0x7  // not supported
+	RTA_METRICS        = 0x8
 	RTA_MULTIPATH      = 0x9
 	RTA_FLOW           = 0xb  // not supported
 	RTA_TABLE          = 0xf
+	RTA_MARK           = 0x10 // not supported
 	RTA_VIA            = 0x12
 	RTA_NEWDST         = 0x13 // not supported
 	RTA_ENCAP_TYPE     = 0x15 // not supported
 	RTA_ENCAP          = 0x16 // not supported
+	RTA_UID            = 0x19 // not supported
 	RTN_UNICAST        = 0x1
 	SizeofNlMsghdr     = 0x10
 	SizeofRtAttr       = 0x4

@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/oss-fun/netlink/nlunix"
+	"github.com/oss-fun/netlink/nlsyscall"
 )
 
 // RtAttr is shared so it is in netlink_linux.go
@@ -118,6 +119,75 @@ func (d *MPLSDestination) Equal(x Destination) bool {
 	}
 	for i := range d.Labels {
 		if d.Labels[i] != o.Labels[i] {
+			return false
+		}
+	}
+	return true
+}
+
+type MPLSEncap struct {
+	Labels []int
+}
+
+func (e *MPLSEncap) Type() int {
+	return nl.LWTUNNEL_ENCAP_MPLS
+}
+
+func (e *MPLSEncap) Decode(buf []byte) error {
+	if len(buf) < 4 {
+		return fmt.Errorf("lack of bytes")
+	}
+	l := native.Uint16(buf)
+	if len(buf) < int(l) {
+		return fmt.Errorf("lack of bytes")
+	}
+	buf = buf[:l]
+	typ := native.Uint16(buf[2:])
+	if typ != nl.MPLS_IPTUNNEL_DST {
+		return fmt.Errorf("unknown MPLS Encap Type: %d", typ)
+	}
+	e.Labels = nl.DecodeMPLSStack(buf[4:])
+	return nil
+}
+
+func (e *MPLSEncap) Encode() ([]byte, error) {
+	s := nl.EncodeMPLSStack(e.Labels...)
+	hdr := make([]byte, 4)
+	native.PutUint16(hdr, uint16(len(s)+4))
+	native.PutUint16(hdr[2:], nl.MPLS_IPTUNNEL_DST)
+	return append(hdr, s...), nil
+}
+
+func (e *MPLSEncap) String() string {
+	s := make([]string, 0, len(e.Labels))
+	for _, l := range e.Labels {
+		s = append(s, fmt.Sprintf("%d", l))
+	}
+	return strings.Join(s, "/")
+}
+
+func (e *MPLSEncap) Equal(x Encap) bool {
+	o, ok := x.(*MPLSEncap)
+	if !ok {
+		return false
+	}
+	if e == nil && o == nil {
+		return true
+	}
+	if e == nil || o == nil {
+		return false
+	}
+	if e.Labels == nil && o.Labels == nil {
+		return true
+	}
+	if e.Labels == nil || o.Labels == nil {
+		return false
+	}
+	if len(e.Labels) != len(o.Labels) {
+		return false
+	}
+	for i := range e.Labels {
+		if e.Labels[i] != o.Labels[i] {
 			return false
 		}
 	}
@@ -491,43 +561,43 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 	}
 	if route.Reordering > 0 {
 		b := nl.Uint32Attr(uint32(route.Reordering))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_REORDERING, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_REORDERING, b))
 	}
 	if route.Hoplimit > 0 {
 		b := nl.Uint32Attr(uint32(route.Hoplimit))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_HOPLIMIT, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_HOPLIMIT, b))
 	}
 	if route.InitCwnd > 0 {
 		b := nl.Uint32Attr(uint32(route.InitCwnd))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_INITCWND, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_INITCWND, b))
 	}
 	if route.Features > 0 {
 		b := nl.Uint32Attr(uint32(route.Features))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_FEATURES, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_FEATURES, b))
 	}
 	if route.RtoMin > 0 {
 		b := nl.Uint32Attr(uint32(route.RtoMin))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_RTO_MIN, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_RTO_MIN, b))
 	}
 	if route.InitRwnd > 0 {
 		b := nl.Uint32Attr(uint32(route.InitRwnd))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_INITRWND, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_INITRWND, b))
 	}
 	if route.QuickACK > 0 {
 		b := nl.Uint32Attr(uint32(route.QuickACK))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_QUICKACK, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_QUICKACK, b))
 	}
 	if route.Congctl != "" {
 		b := nl.ZeroTerminated(route.Congctl)
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_CC_ALGO, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_CC_ALGO, b))
 	}
 	if route.FastOpenNoCookie > 0 {
 		b := nl.Uint32Attr(uint32(route.FastOpenNoCookie))
-		metrics = append(metrics, nl.NewRtAttr(unix.RTAX_FASTOPEN_NO_COOKIE, b))
+		metrics = append(metrics, nl.NewRtAttr(nlunix.RTAX_FASTOPEN_NO_COOKIE, b))
 	}
 
 	if metrics != nil {
-		attr := nl.NewRtAttr(unix.RTA_METRICS, nil)
+		attr := nl.NewRtAttr(nlunix.RTA_METRICS, nil)
 		for _, metric := range metrics {
 			attr.AddChild(metric)
 		}
@@ -545,10 +615,10 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 		req.AddData(attr)
 	}
 
-	if (req.NlMsghdr.Type != unix.RTM_GETROUTE) || (req.NlMsghdr.Type == unix.RTM_GETROUTE && route.LinkIndex > 0) {
+	if (req.NlMsghdr.Type != nlunix.RTM_GETROUTE) || (req.NlMsghdr.Type == nlunix.RTM_GETROUTE && route.LinkIndex > 0) {
 		b := make([]byte, 4)
 		native.PutUint32(b, uint32(route.LinkIndex))
-		req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
+		req.AddData(nl.NewRtAttr(nlunix.RTA_OIF, b))
 	}
 	return nil
 }
@@ -600,7 +670,7 @@ func RouteListFilteredIter(family int, filter *Route, filterMask uint64, f func(
 }
 
 func (h *Handle) RouteListFilteredIter(family int, filter *Route, filterMask uint64, f func(Route) (cont bool)) error {
-	req := h.newNetlinkRequest(unix.RTM_GETROUTE, unix.NLM_F_DUMP)
+	req := h.newNetlinkRequest(nlunix.RTM_GETROUTE, nlunix.NLM_F_DUMP)
 	rtmsg := &nl.RtMsg{}
 	rtmsg.Family = uint8(family)
 
@@ -611,11 +681,11 @@ func (h *Handle) RouteListFilteredIter(family int, filter *Route, filterMask uin
 			// Ignore routes not matching requested family
 			return true
 		}
-		if msg.Flags&unix.RTM_F_CLONED != 0 {
+		if msg.Flags&nlunix.RTM_F_CLONED != 0 {
 			// Ignore cloned routes
 			return true
 		}
-		if msg.Table != unix.RT_TABLE_MAIN {
+		if msg.Table != nlunix.RT_TABLE_MAIN {
 			if filter == nil || filterMask&RT_FILTER_TABLE == 0 {
 				// Ignore non-main tables
 				return true
@@ -628,7 +698,7 @@ func (h *Handle) RouteListFilteredIter(family int, filter *Route, filterMask uin
 		}
 		if filter != nil {
 			switch {
-			case filterMask&RT_FILTER_TABLE != 0 && filter.Table != unix.RT_TABLE_UNSPEC && route.Table != filter.Table:
+			case filterMask&RT_FILTER_TABLE != 0 && filter.Table != nlunix.RT_TABLE_UNSPEC && route.Table != filter.Table:
 				return true
 			case filterMask&RT_FILTER_PROTOCOL != 0 && route.Protocol != filter.Protocol:
 				return true
@@ -689,12 +759,12 @@ func deserializeRoute(m []byte) (Route, error) {
 		Family:   int(msg.Family),
 	}
 
-	var encap, encapType syscall.NetlinkRouteAttr
+	var encap, encapType nlsyscall.NetlinkRouteAttr
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
 		case unix.RTA_GATEWAY:
 			route.Gw = net.IP(attr.Value)
-		case unix.RTA_PREFSRC:
+		case nlunix.RTA_PREFSRC:
 			route.Src = net.IP(attr.Value)
 		case unix.RTA_DST:
 			if msg.Family == nl.FAMILY_MPLS {
@@ -709,19 +779,19 @@ func deserializeRoute(m []byte) (Route, error) {
 					Mask: net.CIDRMask(int(msg.Dst_len), 8*len(attr.Value)),
 				}
 			}
-		case unix.RTA_OIF:
+		case nlunix.RTA_OIF:
 			route.LinkIndex = int(native.Uint32(attr.Value[0:4]))
-		case unix.RTA_IIF:
+		case nlunix.RTA_IIF:
 			route.ILinkIndex = int(native.Uint32(attr.Value[0:4]))
-		case unix.RTA_PRIORITY:
+		case nlunix.RTA_PRIORITY:
 			route.Priority = int(native.Uint32(attr.Value[0:4]))
-		case unix.RTA_FLOW:
+		case nlunix.RTA_FLOW:
 			route.Realm = int(native.Uint32(attr.Value[0:4]))
-		case unix.RTA_TABLE:
+		case nlunix.RTA_TABLE:
 			route.Table = int(native.Uint32(attr.Value[0:4]))
-		case unix.RTA_MULTIPATH:
+		case nlunix.RTA_MULTIPATH:
 			parseRtNexthop := func(value []byte) (*NexthopInfo, []byte, error) {
-				if len(value) < unix.SizeofRtNexthop {
+				if len(value) < nlunix.SizeofRtNexthop {
 					return nil, nil, fmt.Errorf("lack of bytes")
 				}
 				nh := nl.DeserializeRtNexthop(value)
@@ -733,16 +803,16 @@ func deserializeRoute(m []byte) (Route, error) {
 					Hops:      int(nh.RtNexthop.Hops),
 					Flags:     int(nh.RtNexthop.Flags),
 				}
-				attrs, err := nl.ParseRouteAttr(value[unix.SizeofRtNexthop:int(nh.RtNexthop.Len)])
+				attrs, err := nl.ParseRouteAttr(value[nlunix.SizeofRtNexthop:int(nh.RtNexthop.Len)])
 				if err != nil {
 					return nil, nil, err
 				}
-				var encap, encapType syscall.NetlinkRouteAttr
+				var encap, encapType nlsyscall.NetlinkRouteAttr
 				for _, attr := range attrs {
 					switch attr.Attr.Type {
 					case unix.RTA_GATEWAY:
 						info.Gw = net.IP(attr.Value)
-					case unix.RTA_NEWDST:
+					case nlunix.RTA_NEWDST:
 						var d Destination
 						switch msg.Family {
 						case nl.FAMILY_MPLS:
@@ -752,11 +822,11 @@ func deserializeRoute(m []byte) (Route, error) {
 							return nil, nil, err
 						}
 						info.NewDst = d
-					case unix.RTA_ENCAP_TYPE:
+					case nlunix.RTA_ENCAP_TYPE:
 						encapType = attr
-					case unix.RTA_ENCAP:
+					case nlunix.RTA_ENCAP:
 						encap = attr
-					case unix.RTA_VIA:
+					case nlunix.RTA_VIA:
 						d := &Via{}
 						if err := d.Decode(attr.Value); err != nil {
 							return nil, nil, err
@@ -789,7 +859,7 @@ func deserializeRoute(m []byte) (Route, error) {
 				route.MultiPath = append(route.MultiPath, info)
 				rest = buf
 			}
-		case unix.RTA_NEWDST:
+		case nlunix.RTA_NEWDST:
 			var d Destination
 			switch msg.Family {
 			case nl.FAMILY_MPLS:
@@ -799,54 +869,54 @@ func deserializeRoute(m []byte) (Route, error) {
 				return route, err
 			}
 			route.NewDst = d
-		case unix.RTA_VIA:
+		case nlunix.RTA_VIA:
 			v := &Via{}
 			if err := v.Decode(attr.Value); err != nil {
 				return route, err
 			}
 			route.Via = v
-		case unix.RTA_ENCAP_TYPE:
+		case nlunix.RTA_ENCAP_TYPE:
 			encapType = attr
-		case unix.RTA_ENCAP:
+		case nlunix.RTA_ENCAP:
 			encap = attr
-		case unix.RTA_METRICS:
+		case nlunix.RTA_METRICS:
 			metrics, err := nl.ParseRouteAttr(attr.Value)
 			if err != nil {
 				return route, err
 			}
 			for _, metric := range metrics {
 				switch metric.Attr.Type {
-				case unix.RTAX_MTU:
+				case nlunix.RTAX_MTU:
 					route.MTU = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_WINDOW:
+				case nlunix.RTAX_WINDOW:
 					route.Window = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_RTT:
+				case nlunix.RTAX_RTT:
 					route.Rtt = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_RTTVAR:
+				case nlunix.RTAX_RTTVAR:
 					route.RttVar = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_SSTHRESH:
+				case nlunix.RTAX_SSTHRESH:
 					route.Ssthresh = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_CWND:
+				case nlunix.RTAX_CWND:
 					route.Cwnd = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_ADVMSS:
+				case nlunix.RTAX_ADVMSS:
 					route.AdvMSS = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_REORDERING:
+				case nlunix.RTAX_REORDERING:
 					route.Reordering = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_HOPLIMIT:
+				case nlunix.RTAX_HOPLIMIT:
 					route.Hoplimit = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_INITCWND:
+				case nlunix.RTAX_INITCWND:
 					route.InitCwnd = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_FEATURES:
+				case nlunix.RTAX_FEATURES:
 					route.Features = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_RTO_MIN:
+				case nlunix.RTAX_RTO_MIN:
 					route.RtoMin = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_INITRWND:
+				case nlunix.RTAX_INITRWND:
 					route.InitRwnd = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_QUICKACK:
+				case nlunix.RTAX_QUICKACK:
 					route.QuickACK = int(native.Uint32(metric.Value[0:4]))
-				case unix.RTAX_CC_ALGO:
+				case nlunix.RTAX_CC_ALGO:
 					route.Congctl = nl.BytesToString(metric.Value)
-				case unix.RTAX_FASTOPEN_NO_COOKIE:
+				case nlunix.RTAX_FASTOPEN_NO_COOKIE:
 					route.FastOpenNoCookie = int(native.Uint32(metric.Value[0:4]))
 				}
 			}
@@ -880,21 +950,6 @@ func deserializeRoute(m []byte) (Route, error) {
 		switch typ {
 		case nl.LWTUNNEL_ENCAP_MPLS:
 			e = &MPLSEncap{}
-			if err := e.Decode(encap.Value); err != nil {
-				return route, err
-			}
-		case nl.LWTUNNEL_ENCAP_SEG6:
-			e = &SEG6Encap{}
-			if err := e.Decode(encap.Value); err != nil {
-				return route, err
-			}
-		case nl.LWTUNNEL_ENCAP_SEG6_LOCAL:
-			e = &SEG6LocalEncap{}
-			if err := e.Decode(encap.Value); err != nil {
-				return route, err
-			}
-		case nl.LWTUNNEL_ENCAP_BPF:
-			e = &BpfEncap{}
 			if err := e.Decode(encap.Value); err != nil {
 				return route, err
 			}
@@ -933,7 +988,7 @@ func RouteGet(destination net.IP) ([]Route, error) {
 // RouteGetWithOptions gets a route to a specific destination from the host system.
 // Equivalent to: 'ip route get <> vrf <VrfName>'.
 func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOptions) ([]Route, error) {
-	req := h.newNetlinkRequest(unix.RTM_GETROUTE, unix.NLM_F_REQUEST)
+	req := h.newNetlinkRequest(nlunix.RTM_GETROUTE, nlunix.NLM_F_REQUEST)
 	family := nl.GetIPFamily(destination)
 	var destinationData []byte
 	var bitlen uint8
@@ -950,9 +1005,9 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 	if options != nil && options.SrcAddr != nil {
 		msg.Src_len = bitlen
 	}
-	msg.Flags = unix.RTM_F_LOOKUP_TABLE
+	msg.Flags = nlunix.RTM_F_LOOKUP_TABLE
 	if options != nil && options.FIBMatch {
-		msg.Flags |= unix.RTM_F_FIB_MATCH
+		msg.Flags |= nlunix.RTM_F_FIB_MATCH
 	}
 	req.AddData(msg)
 
@@ -968,7 +1023,7 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 			b := make([]byte, 4)
 			native.PutUint32(b, uint32(link.Attrs().Index))
 
-			req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
+			req.AddData(nl.NewRtAttr(nlunix.RTA_OIF, b))
 		}
 
 		iifIndex := 0
@@ -987,7 +1042,7 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 			b := make([]byte, 4)
 			native.PutUint32(b, uint32(iifIndex))
 
-			req.AddData(nl.NewRtAttr(unix.RTA_IIF, b))
+			req.AddData(nl.NewRtAttr(nlunix.RTA_IIF, b))
 		}
 
 		if len(options.Oif) > 0 {
@@ -999,7 +1054,7 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 			b := make([]byte, 4)
 			native.PutUint32(b, uint32(link.Attrs().Index))
 
-			req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
+			req.AddData(nl.NewRtAttr(nlunix.RTA_OIF, b))
 		}
 
 		if options.SrcAddr != nil {
@@ -1010,7 +1065,7 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 				srcAddr = options.SrcAddr.To16()
 			}
 
-			req.AddData(nl.NewRtAttr(unix.RTA_SRC, srcAddr))
+			req.AddData(nl.NewRtAttr(nlunix.RTA_SRC, srcAddr))
 		}
 
 		if options.UID != nil {
@@ -1018,18 +1073,18 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 			b := make([]byte, 4)
 			native.PutUint32(b, uid)
 
-			req.AddData(nl.NewRtAttr(unix.RTA_UID, b))
+			req.AddData(nl.NewRtAttr(nlunix.RTA_UID, b))
 		}
 
 		if options.Mark > 0 {
 			b := make([]byte, 4)
 			native.PutUint32(b, options.Mark)
 
-			req.AddData(nl.NewRtAttr(unix.RTA_MARK, b))
+			req.AddData(nl.NewRtAttr(nlunix.RTA_MARK, b))
 		}
 	}
 
-	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWROUTE)
+	msgs, err := req.Execute(nlunix.NETLINK_ROUTE, nlunix.RTM_NEWROUTE)
 	if err != nil {
 		return nil, err
 	}
@@ -1088,7 +1143,7 @@ func RouteSubscribeWithOptions(ch chan<- RouteUpdate, done <-chan struct{}, opti
 
 func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
-	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_IPV4_ROUTE, unix.RTNLGRP_IPV6_ROUTE)
+	s, err := nl.SubscribeAt(newNs, curNs, nlunix.NETLINK_ROUTE, nlunix.RTNLGRP_IPV4_ROUTE, nlunix.RTNLGRP_IPV6_ROUTE)
 	if err != nil {
 		return err
 	}
@@ -1110,8 +1165,8 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 		}()
 	}
 	if listExisting {
-		req := pkgHandle.newNetlinkRequest(unix.RTM_GETROUTE,
-			unix.NLM_F_DUMP)
+		req := pkgHandle.newNetlinkRequest(nlunix.RTM_GETROUTE,
+			nlunix.NLM_F_DUMP)
 		infmsg := nl.NewIfInfomsg(unix.AF_UNSPEC)
 		req.AddData(infmsg)
 		if err := s.Send(req); err != nil {
@@ -1136,10 +1191,10 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 				continue
 			}
 			for _, m := range msgs {
-				if m.Header.Type == unix.NLMSG_DONE {
+				if m.Header.Type == nlunix.NLMSG_DONE {
 					continue
 				}
-				if m.Header.Type == unix.NLMSG_ERROR {
+				if m.Header.Type == nlunix.NLMSG_ERROR {
 					error := int32(native.Uint32(m.Data[0:4]))
 					if error == 0 {
 						continue
@@ -1159,7 +1214,7 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 				}
 				ch <- RouteUpdate{
 					Type:    m.Header.Type,
-					NlFlags: m.Header.Flags & (unix.NLM_F_REPLACE | unix.NLM_F_EXCL | unix.NLM_F_CREATE | unix.NLM_F_APPEND),
+					NlFlags: m.Header.Flags & (nlunix.NLM_F_REPLACE | nlunix.NLM_F_EXCL | nlunix.NLM_F_CREATE | nlunix.NLM_F_APPEND),
 					Route:   route,
 				}
 			}
@@ -1171,49 +1226,49 @@ func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <
 
 func (p RouteProtocol) String() string {
 	switch int(p) {
-	case unix.RTPROT_BABEL:
+	case nlunix.RTPROT_BABEL:
 		return "babel"
-	case unix.RTPROT_BGP:
+	case nlunix.RTPROT_BGP:
 		return "bgp"
-	case unix.RTPROT_BIRD:
+	case nlunix.RTPROT_BIRD:
 		return "bird"
-	case unix.RTPROT_BOOT:
+	case nlunix.RTPROT_BOOT:
 		return "boot"
-	case unix.RTPROT_DHCP:
+	case nlunix.RTPROT_DHCP:
 		return "dhcp"
-	case unix.RTPROT_DNROUTED:
+	case nlunix.RTPROT_DNROUTED:
 		return "dnrouted"
-	case unix.RTPROT_EIGRP:
+	case nlunix.RTPROT_EIGRP:
 		return "eigrp"
-	case unix.RTPROT_GATED:
+	case nlunix.RTPROT_GATED:
 		return "gated"
-	case unix.RTPROT_ISIS:
+	case nlunix.RTPROT_ISIS:
 		return "isis"
 	// case unix.RTPROT_KEEPALIVED:
 	//	return "keepalived"
-	case unix.RTPROT_KERNEL:
+	case nlunix.RTPROT_KERNEL:
 		return "kernel"
-	case unix.RTPROT_MROUTED:
+	case nlunix.RTPROT_MROUTED:
 		return "mrouted"
-	case unix.RTPROT_MRT:
+	case nlunix.RTPROT_MRT:
 		return "mrt"
-	case unix.RTPROT_NTK:
+	case nlunix.RTPROT_NTK:
 		return "ntk"
-	case unix.RTPROT_OSPF:
+	case nlunix.RTPROT_OSPF:
 		return "ospf"
-	case unix.RTPROT_RA:
+	case nlunix.RTPROT_RA:
 		return "ra"
-	case unix.RTPROT_REDIRECT:
+	case nlunix.RTPROT_REDIRECT:
 		return "redirect"
-	case unix.RTPROT_RIP:
+	case nlunix.RTPROT_RIP:
 		return "rip"
-	case unix.RTPROT_STATIC:
+	case nlunix.RTPROT_STATIC:
 		return "static"
-	case unix.RTPROT_UNSPEC:
+	case nlunix.RTPROT_UNSPEC:
 		return "unspec"
-	case unix.RTPROT_XORP:
+	case nlunix.RTPROT_XORP:
 		return "xorp"
-	case unix.RTPROT_ZEBRA:
+	case nlunix.RTPROT_ZEBRA:
 		return "zebra"
 	default:
 		return strconv.Itoa(int(p))
