@@ -181,6 +181,33 @@ func (h *Handle) LinkSetName(link Link, name string) error {
 	return err
 }
 
+// LinkSetMasterByIndex sets the master of the link device.
+// Equivalent to: `ip link set $link master $master`
+func LinkSetMasterByIndex(link Link, masterIndex int) error {
+	return pkgHandle.LinkSetMasterByIndex(link, masterIndex)
+}
+
+// LinkSetMasterByIndex sets the master of the link device.
+// Equivalent to: `ip link set $link master $master`
+func (h *Handle) LinkSetMasterByIndex(link Link, masterIndex int) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	b := make([]byte, 4)
+	native.PutUint32(b, uint32(masterIndex))
+
+	data := nl.NewRtAttr(nlunix.IFLA_MASTER, b)
+	req.AddData(data)
+
+	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
+	return err
+}
+
 // LinkSetNsFd puts the device into a new network namespace. The
 // fd must be an open file descriptor to a network namespace.
 // Similar to: `ip link set $link netns $ns`

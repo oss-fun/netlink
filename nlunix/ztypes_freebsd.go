@@ -92,6 +92,7 @@ const (
 	RTA_ENCAP_TYPE     = 0x15 // not supported
 	RTA_ENCAP          = 0x16 // not supported
 	RTA_UID            = 0x19 // not supported
+	RTN_UNSPEC         = 0x0
 	RTN_UNICAST        = 0x1
 	SizeofNlMsghdr     = 0x10
 	SizeofRtAttr       = 0x4

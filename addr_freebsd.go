@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"syscall"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 	
 	"github.com/oss-fun/netlink/nlunix"
