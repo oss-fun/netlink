@@ -7,7 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 	"github.com/oss-fun/netlink/nlunix"
 )
@@ -340,19 +340,19 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 // NeighSubscribe takes a chan down which notifications will be sent
 // when neighbors are added or deleted. Close the 'done' chan to stop subscription.
 func NeighSubscribe(ch chan<- NeighUpdate, done <-chan struct{}) error {
-	return neighSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil, false)
+	return neighSubscribeAt(vnet.None(), vnet.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // NeighSubscribeAt works like NeighSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
-func NeighSubscribeAt(ns netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}) error {
-	return neighSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil, false)
+func NeighSubscribeAt(ns vnet.VjHandle, ch chan<- NeighUpdate, done <-chan struct{}) error {
+	return neighSubscribeAt(ns, vnet.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // NeighSubscribeOptions contains a set of options to use with
 // NeighSubscribeWithOptions.
 type NeighSubscribeOptions struct {
-	Namespace     *netns.NsHandle
+	Namespace     *vnet.VjHandle
 	ErrorCallback func(error)
 	ListExisting  bool
 
@@ -367,14 +367,14 @@ type NeighSubscribeOptions struct {
 // namespace can be provided as well as an error callback.
 func NeighSubscribeWithOptions(ch chan<- NeighUpdate, done <-chan struct{}, options NeighSubscribeOptions) error {
 	if options.Namespace == nil {
-		none := netns.None()
+		none := vnet.None()
 		options.Namespace = &none
 	}
-	return neighSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting,
+	return neighSubscribeAt(*options.Namespace, vnet.None(), ch, done, options.ErrorCallback, options.ListExisting,
 		options.ReceiveBufferSize, options.ReceiveTimeout, options.ReceiveBufferForceSize)
 }
 
-func neighSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- NeighUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
+func neighSubscribeAt(newNs, curNs vnet.VjHandle, ch chan<- NeighUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, nlunix.NETLINK_ROUTE, nlunix.RTNLGRP_NEIGH)
 	makeRequest := func(family int) error {
