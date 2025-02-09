@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 
 	"github.com/oss-fun/netlink/nlunix"
@@ -1109,19 +1109,19 @@ func (h *Handle) RouteGet(destination net.IP) ([]Route, error) {
 // RouteSubscribe takes a chan down which notifications will be sent
 // when routes are added or deleted. Close the 'done' chan to stop subscription.
 func RouteSubscribe(ch chan<- RouteUpdate, done <-chan struct{}) error {
-	return routeSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil, false)
+	return routeSubscribeAt(vnet.None(), vnet.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // RouteSubscribeAt works like RouteSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
-func RouteSubscribeAt(ns netns.NsHandle, ch chan<- RouteUpdate, done <-chan struct{}) error {
-	return routeSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil, false)
+func RouteSubscribeAt(ns vnet.VjHandle, ch chan<- RouteUpdate, done <-chan struct{}) error {
+	return routeSubscribeAt(ns, vnet.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // RouteSubscribeOptions contains a set of options to use with
 // RouteSubscribeWithOptions.
 type RouteSubscribeOptions struct {
-	Namespace              *netns.NsHandle
+	Namespace              *vnet.VjHandle
 	ErrorCallback          func(error)
 	ListExisting           bool
 	ReceiveBufferSize      int
@@ -1134,14 +1134,14 @@ type RouteSubscribeOptions struct {
 // namespace can be provided as well as an error callback.
 func RouteSubscribeWithOptions(ch chan<- RouteUpdate, done <-chan struct{}, options RouteSubscribeOptions) error {
 	if options.Namespace == nil {
-		none := netns.None()
+		none := vnet.None()
 		options.Namespace = &none
 	}
-	return routeSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting,
+	return routeSubscribeAt(*options.Namespace, vnet.None(), ch, done, options.ErrorCallback, options.ListExisting,
 		options.ReceiveBufferSize, options.ReceiveTimeout, options.ReceiveBufferForceSize)
 }
 
-func routeSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- RouteUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
+func routeSubscribeAt(newNs, curNs vnet.VjHandle, ch chan<- RouteUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, nlunix.NETLINK_ROUTE, nlunix.RTNLGRP_IPV4_ROUTE, nlunix.RTNLGRP_IPV6_ROUTE)
 	if err != nil {
