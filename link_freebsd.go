@@ -13,7 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 
 	"github.com/oss-fun/netlink/nlunix"
@@ -1366,19 +1366,19 @@ type LinkUpdate struct {
 // LinkSubscribe takes a chan down which notifications will be sent
 // when links change.  Close the 'done' chan to stop subscription.
 func LinkSubscribe(ch chan<- LinkUpdate, done <-chan struct{}) error {
-	return linkSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0, nil, false)
+	return linkSubscribeAt(vnet.None(), vnet.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // LinkSubscribeAt works like LinkSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
-func LinkSubscribeAt(ns netns.NsHandle, ch chan<- LinkUpdate, done <-chan struct{}) error {
-	return linkSubscribeAt(ns, netns.None(), ch, done, nil, false, 0, nil, false)
+func LinkSubscribeAt(ns vnet.VjHandle, ch chan<- LinkUpdate, done <-chan struct{}) error {
+	return linkSubscribeAt(ns, vnet.None(), ch, done, nil, false, 0, nil, false)
 }
 
 // LinkSubscribeOptions contains a set of options to use with
 // LinkSubscribeWithOptions.
 type LinkSubscribeOptions struct {
-	Namespace              *netns.NsHandle
+	Namespace              *vnet.VjHandle
 	ErrorCallback          func(error)
 	ListExisting           bool
 	ReceiveBufferSize      int
@@ -1391,14 +1391,14 @@ type LinkSubscribeOptions struct {
 // namespace can be provided as well as an error callback.
 func LinkSubscribeWithOptions(ch chan<- LinkUpdate, done <-chan struct{}, options LinkSubscribeOptions) error {
 	if options.Namespace == nil {
-		none := netns.None()
+		none := vnet.None()
 		options.Namespace = &none
 	}
-	return linkSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting,
+	return linkSubscribeAt(*options.Namespace, vnet.None(), ch, done, options.ErrorCallback, options.ListExisting,
 		options.ReceiveBufferSize, options.ReceiveTimeout, options.ReceiveBufferForceSize)
 }
 
-func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
+func linkSubscribeAt(newNs, curNs vnet.VjHandle, ch chan<- LinkUpdate, done <-chan struct{}, cberr func(error), listExisting bool,
 	rcvbuf int, rcvTimeout *unix.Timeval, rcvbufForce bool) error {
 	s, err := nl.SubscribeAt(newNs, curNs, nlunix.NETLINK_ROUTE, nlunix.RTNLGRP_LINK)
 	if err != nil {
