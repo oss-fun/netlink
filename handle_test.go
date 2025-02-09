@@ -194,38 +194,6 @@ var (
 	once      sync.Once
 )
 
-func getXfrmState(thread int) *XfrmState {
-	return &XfrmState{
-		Src:   net.IPv4(byte(192), byte(168), 1, byte(1+thread)),
-		Dst:   net.IPv4(byte(192), byte(168), 2, byte(1+thread)),
-		Proto: XFRM_PROTO_AH,
-		Mode:  XFRM_MODE_TUNNEL,
-		Spi:   thread,
-		Auth: &XfrmStateAlgo{
-			Name: "hmac(sha256)",
-			Key:  []byte("abcdefghijklmnopqrstuvwzyzABCDEF"),
-		},
-	}
-}
-
-func getXfrmPolicy(thread int) *XfrmPolicy {
-	return &XfrmPolicy{
-		Src:     &net.IPNet{IP: net.IPv4(byte(10), byte(10), byte(thread), 0), Mask: []byte{255, 255, 255, 0}},
-		Dst:     &net.IPNet{IP: net.IPv4(byte(10), byte(10), byte(thread), 0), Mask: []byte{255, 255, 255, 0}},
-		Proto:   17,
-		DstPort: 1234,
-		SrcPort: 5678,
-		Dir:     XFRM_DIR_OUT,
-		Tmpls: []XfrmPolicyTmpl{
-			{
-				Src:   net.IPv4(byte(192), byte(168), 1, byte(thread)),
-				Dst:   net.IPv4(byte(192), byte(168), 2, byte(thread)),
-				Proto: XFRM_PROTO_ESP,
-				Mode:  XFRM_MODE_TUNNEL,
-			},
-		},
-	}
-}
 func initParallel() {
 	ns1, initError = netns.New()
 	if initError != nil {
