@@ -14,7 +14,7 @@ import (
 
 	"github.com/oss-fun/netlink/nlunix"
 	"github.com/oss-fun/netlink/nlsyscall"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 )
 
@@ -564,7 +564,7 @@ func getNetlinkSocket(protocol int) (*NetlinkSocket, error) {
 // when done. If curNs is close, the function derives the current namespace and
 // moves back into it when done. If newNs is close, the socket will be opened
 // in the current network namespace.
-func GetNetlinkSocketAt(newNs, curNs netns.NsHandle, protocol int) (*NetlinkSocket, error) {
+func GetNetlinkSocketAt(newNs, curNs vnet.VjHandle, protocol int) (*NetlinkSocket, error) {
 	c, err := executeInNetns(newNs, curNs)
 	if err != nil {
 		return nil, err
@@ -588,10 +588,10 @@ func GetNetlinkSocketAt(newNs, curNs netns.NsHandle, protocol int) (*NetlinkSock
 //	 }
 //
 // TODO: his function probably belongs to netns pkg.
-func executeInNetns(newNs, curNs netns.NsHandle) (func(), error) {
+func executeInNetns(newNs, curNs vnet.VjHandle) (func(), error) {
 	var (
 		err       error
-		moveBack  func(netns.NsHandle) error
+		moveBack  func(vnet.VjHandle) error
 		closeNs   func() error
 		unlockThd func()
 	)
@@ -611,17 +611,17 @@ func executeInNetns(newNs, curNs netns.NsHandle) (func(), error) {
 		runtime.LockOSThread()
 		unlockThd = runtime.UnlockOSThread
 		if !curNs.IsOpen() {
-			if curNs, err = netns.Get(); err != nil {
+			if curNs, err = vnet.Get(); err != nil {
 				restore()
 				return nil, fmt.Errorf("could not get current namespace while creating netlink socket: %v", err)
 			}
 			closeNs = curNs.Close
 		}
-		if err := netns.Set(newNs); err != nil {
+		if err := vnet.Set(newNs); err != nil {
 			restore()
 			return nil, fmt.Errorf("failed to set into network namespace %d while creating netlink socket: %v", newNs, err)
 		}
-		moveBack = netns.Set
+		moveBack = vnet.Set
 	}
 	return restore, nil
 }
@@ -655,7 +655,7 @@ func Subscribe(protocol int, groups ...uint) (*NetlinkSocket, error) {
 // SubscribeAt works like Subscribe plus let's the caller choose the network
 // namespace in which the socket would be opened (newNs). Then control goes back
 // to curNs if open, otherwise to the netns at the time this function was called.
-func SubscribeAt(newNs, curNs netns.NsHandle, protocol int, groups ...uint) (*NetlinkSocket, error) {
+func SubscribeAt(newNs, curNs vnet.VjHandle, protocol int, groups ...uint) (*NetlinkSocket, error) {
 	c, err := executeInNetns(newNs, curNs)
 	if err != nil {
 		return nil, err
