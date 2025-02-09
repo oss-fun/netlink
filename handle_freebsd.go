@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 
 	"github.com/oss-fun/netlink/nlunix"
@@ -50,7 +50,7 @@ func (h *Handle) SupportsNetlinkFamily(nlFamily int) bool {
 // If no families are specified, all the families the netlink package
 // supports will be automatically added.
 func NewHandle(nlFamilies ...int) (*Handle, error) {
-	return newHandle(netns.None(), netns.None(), nlFamilies...)
+	return newHandle(vnet.None(), vnet.None(), nlFamilies...)
 }
 
 // SetSocketTimeout sets the send and receive timeout for each socket in the
@@ -127,17 +127,17 @@ func (h *Handle) SetStrictCheck(state bool) error {
 // NewHandleAt returns a netlink handle on the network namespace
 // specified by ns. If ns=netns.None(), current network namespace
 // will be assumed
-func NewHandleAt(ns netns.NsHandle, nlFamilies ...int) (*Handle, error) {
-	return newHandle(ns, netns.None(), nlFamilies...)
+func NewHandleAt(ns vnet.VjHandle, nlFamilies ...int) (*Handle, error) {
+	return newHandle(ns, vnet.None(), nlFamilies...)
 }
 
 // NewHandleAtFrom works as NewHandle but allows client to specify the
 // new and the origin netns Handle.
-func NewHandleAtFrom(newNs, curNs netns.NsHandle) (*Handle, error) {
+func NewHandleAtFrom(newNs, curNs vnet.VjHandle) (*Handle, error) {
 	return newHandle(newNs, curNs)
 }
 
-func newHandle(newNs, curNs netns.NsHandle, nlFamilies ...int) (*Handle, error) {
+func newHandle(newNs, curNs vnet.VjHandle, nlFamilies ...int) (*Handle, error) {
 	h := &Handle{sockets: map[int]*nl.SocketHandle{}}
 	fams := nl.SupportedNlFamilies
 	if len(nlFamilies) != 0 {
