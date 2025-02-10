@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
+
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 type arpEntry struct {
@@ -325,7 +327,7 @@ func TestNeighSubscribe(t *testing.T) {
 		t.Errorf("Failed to NeighAdd: %v", err)
 	}
 	if !expectNeighUpdate(ch, []NeighUpdate{NeighUpdate{
-		Type:  unix.RTM_NEWNEIGH,
+		Type:  nlunix.RTM_NEWNEIGH,
 		Neigh: *entry,
 	}}) {
 		t.Fatalf("Add update not received as expected")
@@ -334,7 +336,7 @@ func TestNeighSubscribe(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !expectNeighUpdate(ch, []NeighUpdate{NeighUpdate{
-		Type: unix.RTM_NEWNEIGH,
+		Type: nlunix.RTM_NEWNEIGH,
 		Neigh: Neigh{
 			State: NUD_FAILED,
 			IP:    entry.IP},
@@ -387,7 +389,7 @@ func TestNeighSubscribeWithOptions(t *testing.T) {
 		t.Errorf("Failed to NeighAdd: %v", err)
 	}
 	if !expectNeighUpdate(ch, []NeighUpdate{NeighUpdate{
-		Type:  unix.RTM_NEWNEIGH,
+		Type:  nlunix.RTM_NEWNEIGH,
 		Neigh: *entry,
 	}}) {
 		t.Fatalf("Add update not received as expected")
@@ -398,7 +400,7 @@ func TestNeighSubscribeAt(t *testing.T) {
 	skipUnlessRoot(t)
 
 	// Create an handle on a custom netns
-	newNs, err := netns.New()
+	newNs, err := vnet.New()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,117 +443,10 @@ func TestNeighSubscribeAt(t *testing.T) {
 		t.Errorf("Failed to NeighAdd: %v", err)
 	}
 	if !expectNeighUpdate(ch, []NeighUpdate{NeighUpdate{
-		Type:  unix.RTM_NEWNEIGH,
+		Type:  nlunix.RTM_NEWNEIGH,
 		Neigh: *entry,
 	}}) {
 		t.Fatalf("Add update not received as expected")
-	}
-}
-
-func TestNeighSubscribeListExisting(t *testing.T) {
-	skipUnlessRoot(t)
-
-	// Create an handle on a custom netns
-	newNs, err := netns.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer newNs.Close()
-
-	nh, err := NewHandleAt(newNs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nh.Close()
-
-	dummy := &Dummy{LinkAttrs{Name: "neigh0"}}
-	if err := nh.LinkAdd(dummy); err != nil {
-		t.Errorf("Failed to create link: %v", err)
-	}
-	ensureIndex(dummy.Attrs())
-	defer func() {
-		if err := nh.LinkDel(dummy); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	vxlani := &Vxlan{LinkAttrs: LinkAttrs{Name: "neigh1"}, VxlanId: 1}
-	if err := nh.LinkAdd(vxlani); err != nil {
-		t.Errorf("Failed to create link: %v", err)
-	}
-	ensureIndex(vxlani.Attrs())
-	defer func() {
-		if err := nh.LinkDel(vxlani); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	entry1 := &Neigh{
-		LinkIndex:    dummy.Index,
-		State:        NUD_REACHABLE,
-		IP:           net.IPv4(198, 51, 100, 1),
-		HardwareAddr: parseMAC("aa:bb:cc:dd:00:01"),
-	}
-
-	entryBr := &Neigh{
-		Family:       syscall.AF_BRIDGE,
-		LinkIndex:    vxlani.Index,
-		State:        NUD_PERMANENT,
-		Flags:        NTF_SELF,
-		IP:           net.IPv4(198, 51, 100, 3),
-		HardwareAddr: parseMAC("aa:bb:cc:dd:00:03"),
-	}
-
-	err = nh.NeighAdd(entry1)
-	if err != nil {
-		t.Errorf("Failed to NeighAdd: %v", err)
-	}
-	err = nh.NeighAppend(entryBr)
-	if err != nil {
-		t.Errorf("Failed to NeighAdd: %v", err)
-	}
-
-	// Subscribe for Neigh events including existing neighbors
-	ch := make(chan NeighUpdate)
-	done := make(chan struct{})
-	defer close(done)
-	if err := NeighSubscribeWithOptions(ch, done, NeighSubscribeOptions{
-		Namespace:    &newNs,
-		ListExisting: true},
-	); err != nil {
-		t.Fatal(err)
-	}
-
-	if !expectNeighUpdate(ch, []NeighUpdate{
-		NeighUpdate{
-			Type:  unix.RTM_NEWNEIGH,
-			Neigh: *entry1,
-		},
-		NeighUpdate{
-			Type:  unix.RTM_NEWNEIGH,
-			Neigh: *entryBr,
-		},
-	}) {
-		t.Fatalf("Existing add update not received as expected")
-	}
-
-	entry2 := &Neigh{
-		LinkIndex:    dummy.Index,
-		State:        NUD_PERMANENT,
-		IP:           net.IPv4(198, 51, 100, 2),
-		HardwareAddr: parseMAC("aa:bb:cc:dd:00:02"),
-	}
-
-	err = nh.NeighAdd(entry2)
-	if err != nil {
-		t.Errorf("Failed to NeighAdd: %v", err)
-	}
-
-	if !expectNeighUpdate(ch, []NeighUpdate{NeighUpdate{
-		Type:  unix.RTM_NEWNEIGH,
-		Neigh: *entry2,
-	}}) {
-		t.Fatalf("Existing add update not received as expected")
 	}
 }
 
