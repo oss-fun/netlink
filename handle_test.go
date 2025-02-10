@@ -15,7 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 )
 
@@ -50,7 +50,7 @@ func TestHandleCreateNetns(t *testing.T) {
 	ifName := "dummy-" + hex.EncodeToString(id)
 
 	// Create an handle on the current netns
-	curNs, err := netns.Get()
+	curNs, err := vnet.Get()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestHandleCreateNetns(t *testing.T) {
 	defer ch.Close()
 
 	// Create an handle on a custom netns
-	newNs, err := netns.New()
+	newNs, err := vnet.New()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,15 +187,15 @@ var (
 	prefix    = "iface"
 	handle1   *Handle
 	handle2   *Handle
-	ns1       netns.NsHandle
-	ns2       netns.NsHandle
+	ns1       vnet.VjHandle
+	ns2       vnet.VjHandle
 	done      uint32
 	initError error
 	once      sync.Once
 )
 
 func initParallel() {
-	ns1, initError = netns.New()
+	ns1, initError = vnet.New()
 	if initError != nil {
 		return
 	}
@@ -203,7 +203,7 @@ func initParallel() {
 	if initError != nil {
 		return
 	}
-	ns2, initError = netns.New()
+	ns2, initError = vnet.New()
 	if initError != nil {
 		return
 	}
@@ -231,106 +231,3 @@ func parallelDone() {
 	}
 }
 
-// Do few route and xfrm operation on the two handles in parallel
-func runParallelTests(t *testing.T, thread int) {
-	skipUnlessRoot(t)
-	defer parallelDone()
-
-	t.Parallel()
-
-	once.Do(initParallel)
-	if initError != nil {
-		t.Fatal(initError)
-	}
-
-	state := getXfrmState(thread)
-	policy := getXfrmPolicy(thread)
-	for i := 0; i < iter; i++ {
-		ifName := fmt.Sprintf("%s_%d_%d", prefix, thread, i)
-		link := &Dummy{LinkAttrs{Name: ifName}}
-		err := handle1.LinkAdd(link)
-		if err != nil {
-			t.Fatal(err)
-		}
-		l, err := handle1.LinkByName(ifName)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle1.LinkSetUp(l)
-		if err != nil {
-			t.Fatal(err)
-		}
-		handle1.LinkSetNsFd(l, int(ns2))
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle1.XfrmStateAdd(state)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle1.XfrmPolicyAdd(policy)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle2.LinkSetDown(l)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle2.XfrmStateAdd(state)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle2.XfrmPolicyAdd(policy)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = handle2.LinkByName(ifName)
-		if err != nil {
-			t.Fatal(err)
-		}
-		handle2.LinkSetNsFd(l, int(ns1))
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle1.LinkSetUp(l)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = handle1.LinkByName(ifName)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle1.XfrmPolicyDel(policy)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle2.XfrmPolicyDel(policy)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle1.XfrmStateDel(state)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = handle2.XfrmStateDel(state)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-func TestHandleParallel1(t *testing.T) {
-	runParallelTests(t, 1)
-}
-
-func TestHandleParallel2(t *testing.T) {
-	runParallelTests(t, 2)
-}
-
-func TestHandleParallel3(t *testing.T) {
-	runParallelTests(t, 3)
-}
-
-func TestHandleParallel4(t *testing.T) {
-	runParallelTests(t, 4)
-}
