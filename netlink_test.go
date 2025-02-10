@@ -229,16 +229,6 @@ func setUpNamedNetlinkTestWithKModule(t *testing.T, moduleNames ...string) (stri
 	return setUpNamedNetlinkTest(t)
 }
 
-func remountSysfs() error {
-	if err := unix.Mount("", "/", "none", unix.MS_SLAVE|unix.MS_REC, ""); err != nil {
-		return err
-	}
-	if err := unix.Unmount("/sys", unix.MNT_DETACH); err != nil {
-		return err
-	}
-	return unix.Mount("", "/sys", "sysfs", 0, "")
-}
-
 func minKernelRequired(t *testing.T, kernel, major int) {
 	t.Helper()
 
