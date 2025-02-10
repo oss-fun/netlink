@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/oss-fun/netlink/nl"
-	"github.com/vishvananda/netns"
+	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 )
 
@@ -971,19 +971,19 @@ func TestNetkitPeerNs(t *testing.T) {
 	tearDown := setUpNetlinkTest(t)
 	defer tearDown()
 
-	basens, err := netns.Get()
+	basens, err := vnet.Get()
 	if err != nil {
 		t.Fatal("Failed to get basens")
 	}
 	defer basens.Close()
 
-	nsOne, err := netns.New()
+	nsOne, err := vnet.New()
 	if err != nil {
 		t.Fatal("Failed to create nsOne")
 	}
 	defer nsOne.Close()
 
-	nsTwo, err := netns.New()
+	nsTwo, err := vnet.New()
 	if err != nil {
 		t.Fatal("Failed to create nsTwo")
 	}
@@ -1018,7 +1018,7 @@ func TestNetkitPeerNs(t *testing.T) {
 		t.Fatal("netkit link foo is in nsTwo")
 	}
 
-	err = netns.Set(basens)
+	err = vnet.Set(basens)
 	if err != nil {
 		t.Fatal("Failed to set basens")
 	}
@@ -1028,7 +1028,7 @@ func TestNetkitPeerNs(t *testing.T) {
 		t.Fatal("netkit link foo is not in basens")
 	}
 
-	err = netns.Set(nsOne)
+	err = vnet.Set(nsOne)
 	if err != nil {
 		t.Fatal("Failed to set nsOne")
 	}
@@ -1268,124 +1268,17 @@ func TestLinkAddDelBridgeMaster(t *testing.T) {
 	}
 }
 
-func testLinkSetUnsetResetMaster(t *testing.T, master, newmaster Link) {
-	slave := &Dummy{LinkAttrs{Name: "baz"}}
-	if err := LinkAdd(slave); err != nil {
-		t.Fatal(err)
-	}
-
-	nonexistsmaster := &Bridge{LinkAttrs: LinkAttrs{Name: "foobar"}}
-
-	if err := LinkSetMaster(slave, nonexistsmaster); err == nil {
-		t.Fatal("error expected")
-	}
-
-	if err := LinkSetMaster(slave, master); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("baz")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().MasterIndex != master.Attrs().Index {
-		t.Fatal("Master not set properly")
-	}
-
-	if err := LinkSetMaster(slave, newmaster); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("baz")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().MasterIndex != newmaster.Attrs().Index {
-		t.Fatal("Master not reset properly")
-	}
-
-	if err := LinkSetNoMaster(slave); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("baz")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().MasterIndex != 0 {
-		t.Fatal("Master not unset properly")
-	}
-	if err := LinkDel(slave); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLinkSetUnsetResetMaster(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	master := &Bridge{LinkAttrs: LinkAttrs{Name: "foo"}}
-	if err := LinkAdd(master); err != nil {
-		t.Fatal(err)
-	}
-
-	newmaster := &Bridge{LinkAttrs: LinkAttrs{Name: "bar"}}
-	if err := LinkAdd(newmaster); err != nil {
-		t.Fatal(err)
-	}
-
-	testLinkSetUnsetResetMaster(t, master, newmaster)
-
-	if err := LinkDel(newmaster); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkDel(master); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLinkSetUnsetResetMasterBond(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	master := NewLinkBond(LinkAttrs{Name: "foo"})
-	master.Mode = BOND_MODE_BALANCE_RR
-	if err := LinkAdd(master); err != nil {
-		t.Fatal(err)
-	}
-
-	newmaster := NewLinkBond(LinkAttrs{Name: "bar"})
-	newmaster.Mode = BOND_MODE_BALANCE_RR
-	if err := LinkAdd(newmaster); err != nil {
-		t.Fatal(err)
-	}
-
-	testLinkSetUnsetResetMaster(t, master, newmaster)
-
-	if err := LinkDel(newmaster); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkDel(master); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestLinkSetNs(t *testing.T) {
 	tearDown := setUpNetlinkTest(t)
 	defer tearDown()
 
-	basens, err := netns.Get()
+	basens, err := vnet.Get()
 	if err != nil {
 		t.Fatal("Failed to get basens")
 	}
 	defer basens.Close()
 
-	newns, err := netns.New()
+	newns, err := vnet.New()
 	if err != nil {
 		t.Fatal("Failed to create newns")
 	}
@@ -1411,7 +1304,7 @@ func TestLinkSetNs(t *testing.T) {
 		t.Fatal("Link bar is still in newns")
 	}
 
-	err = netns.Set(basens)
+	err = vnet.Set(basens)
 	if err != nil {
 		t.Fatal("Failed to set basens")
 	}
@@ -1425,7 +1318,7 @@ func TestLinkSetNs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = netns.Set(newns)
+	err = vnet.Set(newns)
 	if err != nil {
 		t.Fatal("Failed to set newns")
 	}
@@ -1450,13 +1343,13 @@ func TestVethPeerNs(t *testing.T) {
 	tearDown := setUpNetlinkTest(t)
 	defer tearDown()
 
-	basens, err := netns.Get()
+	basens, err := vnet.Get()
 	if err != nil {
 		t.Fatal("Failed to get basens")
 	}
 	defer basens.Close()
 
-	newns, err := netns.New()
+	newns, err := vnet.New()
 	if err != nil {
 		t.Fatal("Failed to create newns")
 	}
@@ -1472,7 +1365,7 @@ func TestVethPeerNs(t *testing.T) {
 		t.Fatal("Link bar is in newns")
 	}
 
-	err = netns.Set(basens)
+	err = vnet.Set(basens)
 	if err != nil {
 		t.Fatal("Failed to set basens")
 	}
@@ -1482,7 +1375,7 @@ func TestVethPeerNs(t *testing.T) {
 		t.Fatal("Link bar is not in basens")
 	}
 
-	err = netns.Set(newns)
+	err = vnet.Set(newns)
 	if err != nil {
 		t.Fatal("Failed to set newns")
 	}
@@ -1497,19 +1390,19 @@ func TestVethPeerNs2(t *testing.T) {
 	tearDown := setUpNetlinkTest(t)
 	defer tearDown()
 
-	basens, err := netns.Get()
+	basens, err := vnet.Get()
 	if err != nil {
 		t.Fatal("Failed to get basens")
 	}
 	defer basens.Close()
 
-	onens, err := netns.New()
+	onens, err := vnet.New()
 	if err != nil {
 		t.Fatal("Failed to create newns")
 	}
 	defer onens.Close()
 
-	twons, err := netns.New()
+	twons, err := vnet.New()
 	if err != nil {
 		t.Fatal("Failed to create twons")
 	}
@@ -1530,7 +1423,7 @@ func TestVethPeerNs2(t *testing.T) {
 		t.Fatal("Link bar is in twons")
 	}
 
-	err = netns.Set(basens)
+	err = vnet.Set(basens)
 	if err != nil {
 		t.Fatal("Failed to set basens")
 	}
@@ -1540,7 +1433,7 @@ func TestVethPeerNs2(t *testing.T) {
 		t.Fatal("Link bar is not in basens")
 	}
 
-	err = netns.Set(onens)
+	err = vnet.Set(onens)
 	if err != nil {
 		t.Fatal("Failed to set onens")
 	}
@@ -1660,74 +1553,6 @@ func TestLinkAddDelVxlanFlowBased(t *testing.T) {
 	testLinkAddDel(t, &vxlan)
 }
 
-func TestLinkAddDelBareUDP(t *testing.T) {
-	minKernelRequired(t, 5, 1)
-	setUpNetlinkTestWithKModule(t, "bareudp")
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	testLinkAddDel(t, &BareUDP{
-		LinkAttrs:  LinkAttrs{Name: "foo99"},
-		Port:       6635,
-		EtherType:  syscall.ETH_P_MPLS_UC,
-		SrcPortMin: 12345,
-		MultiProto: true,
-	})
-
-	testLinkAddDel(t, &BareUDP{
-		LinkAttrs:  LinkAttrs{Name: "foo100"},
-		Port:       6635,
-		EtherType:  syscall.ETH_P_IP,
-		SrcPortMin: 12345,
-		MultiProto: true,
-	})
-}
-
-func TestBareUDPCompareToIP(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skipf("Fails in CI due to old iproute2")
-	}
-	// requires iproute2 >= 5.10
-	minKernelRequired(t, 5, 9)
-	setUpNetlinkTestWithKModule(t, "bareudp")
-	ns, tearDown := setUpNamedNetlinkTest(t)
-	defer tearDown()
-
-	expected := &BareUDP{
-		Port:       uint16(6635),
-		EtherType:  syscall.ETH_P_MPLS_UC,
-		SrcPortMin: 12345,
-		MultiProto: true,
-	}
-
-	// Create interface
-	cmd := exec.Command("ip", "netns", "exec", ns,
-		"ip", "link", "add", "b0",
-		"type", "bareudp",
-		"dstport", fmt.Sprint(expected.Port),
-		"ethertype", "mpls_uc",
-		"srcportmin", fmt.Sprint(expected.SrcPortMin),
-		"multiproto",
-	)
-	out := &bytes.Buffer{}
-	cmd.Stdout = out
-	cmd.Stderr = out
-
-	if rc := cmd.Run(); rc != nil {
-		t.Fatal("failed creating link:", rc, out.String())
-	}
-
-	link, err := LinkByName("b0")
-	if err != nil {
-		t.Fatal("Failed getting link: ", err)
-	}
-	actual, ok := link.(*BareUDP)
-	if !ok {
-		t.Fatalf("resulted interface is not BareUDP: %T", link)
-	}
-	compareBareUDP(t, expected, actual)
-}
-
 func TestLinkAddDelIPVlanL2(t *testing.T) {
 	minKernelRequired(t, 4, 2)
 	tearDown := setUpNetlinkTest(t)
@@ -1835,220 +1660,6 @@ func TestLinkByIndex(t *testing.T) {
 	}
 }
 
-func TestLinkSet(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Dummy{LinkAttrs{Name: "foo"}}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetName(link, "bar")
-	if err != nil {
-		t.Fatalf("Could not change interface name: %v", err)
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatalf("Interface name not changed: %v", err)
-	}
-
-	err = LinkSetMTU(link, 1400)
-	if err != nil {
-		t.Fatalf("Could not set MTU: %v", err)
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().MTU != 1400 {
-		t.Fatal("MTU not changed")
-	}
-
-	err = LinkSetTxQLen(link, 500)
-	if err != nil {
-		t.Fatalf("Could not set txqlen: %v", err)
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().TxQLen != 500 {
-		t.Fatal("txqlen not changed")
-	}
-
-	addr, err := net.ParseMAC("00:12:34:56:78:AB")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetHardwareAddr(link, addr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !bytes.Equal(link.Attrs().HardwareAddr, addr) {
-		t.Fatalf("hardware address not changed")
-	}
-
-	err = LinkSetAlias(link, "barAlias")
-	if err != nil {
-		t.Fatalf("Could not set alias: %v", err)
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().Alias != "barAlias" {
-		t.Fatalf("alias not changed")
-	}
-
-	link, err = LinkByAlias("barAlias")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetGroup(link, 42)
-	if err != nil {
-		t.Fatalf("Could not set group: %v", err)
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().Group != 42 {
-		t.Fatal("Link group not changed")
-	}
-}
-
-func TestLinkAltName(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Dummy{LinkAttrs{Name: "bar"}}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	altNames := []string{"altname", "altname2", "some_longer_altname"}
-	sort.Strings(altNames)
-	altNamesStr := strings.Join(altNames, ",")
-
-	for _, altname := range altNames {
-		err = LinkAddAltName(link, altname)
-		if err != nil {
-			t.Fatalf("Could not add %s: %v", altname, err)
-		}
-	}
-
-	link, err = LinkByName("bar")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sort.Strings(link.Attrs().AltNames)
-	linkAltNamesStr := strings.Join(link.Attrs().AltNames, ",")
-
-	if altNamesStr != linkAltNamesStr {
-		t.Fatalf("Expected %s AltNames, got %s", altNamesStr, linkAltNamesStr)
-	}
-
-	for _, altname := range altNames {
-		link, err = LinkByName(altname)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	for idx, altName := range altNames {
-		err = LinkDelAltName(link, altName)
-		if err != nil {
-			t.Fatalf("Could not delete %s: %v", altName, err)
-		}
-
-		link, err = LinkByName("bar")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		sort.Strings(link.Attrs().AltNames)
-		linkAltNamesStr := strings.Join(link.Attrs().AltNames, ",")
-		altNamesStr := strings.Join(altNames[idx+1:], ",")
-
-		if linkAltNamesStr != altNamesStr {
-			t.Fatalf("Expected %s AltNames, got %s", altNamesStr, linkAltNamesStr)
-		}
-	}
-
-}
-
-func TestLinkSetARP(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "banana"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetARPOff(link)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().RawFlags&unix.IFF_NOARP != uint32(unix.IFF_NOARP) {
-		t.Fatalf("NOARP was not set")
-	}
-
-	err = LinkSetARPOn(link)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().RawFlags&unix.IFF_NOARP != 0 {
-		t.Fatalf("NOARP is still set")
-	}
-}
-
 func expectLinkUpdate(ch <-chan LinkUpdate, ifaceName string, up bool) bool {
 	for {
 		timeout := time.After(time.Minute)
@@ -2135,7 +1746,7 @@ func TestLinkSubscribeAt(t *testing.T) {
 	skipUnlessRoot(t)
 
 	// Create an handle on a custom netns
-	newNs, err := netns.New()
+	newNs, err := vnet.New()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2185,7 +1796,7 @@ func TestLinkSubscribeListExisting(t *testing.T) {
 	skipUnlessRoot(t)
 
 	// Create an handle on a custom netns
-	newNs, err := netns.New()
+	newNs, err := vnet.New()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2282,35 +1893,6 @@ func TestLinkStats(t *testing.T) {
 	}
 }
 
-func TestLinkXdp(t *testing.T) {
-	links, err := LinkList()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var testXdpLink Link
-	for _, link := range links {
-		if link.Attrs().Xdp != nil && !link.Attrs().Xdp.Attached {
-			testXdpLink = link
-			break
-		}
-	}
-	if testXdpLink == nil {
-		t.Skipf("No link supporting XDP found")
-	}
-	fd, err := loadSimpleBpf(BPF_PROG_TYPE_XDP, 2 /*XDP_PASS*/)
-	if err != nil {
-		t.Skipf("Loading bpf program failed: %s", err)
-	}
-	if err := LinkSetXdpFd(testXdpLink, fd); err != nil {
-		t.Fatal(err)
-	}
-	if err := LinkSetXdpFdWithFlags(testXdpLink, fd, nl.XDP_FLAGS_UPDATE_IF_NOEXIST); !errors.Is(err, unix.EBUSY) {
-		t.Fatal(err)
-	}
-	if err := LinkSetXdpFd(testXdpLink, -1); err != nil {
-		t.Fatal(err)
-	}
-}
 
 func TestLinkAddDelIptun(t *testing.T) {
 	minKernelRequired(t, 4, 9)
@@ -2386,176 +1968,6 @@ func TestLinkAddDelVti(t *testing.T) {
 		Remote:    net.IPv6loopback})
 }
 
-func TestLinkSetGSOMaxSize(t *testing.T) {
-	minKernelRequired(t, 5, 19)
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetGSOMaxSize(link, 32768)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().GSOMaxSize != 32768 {
-		t.Fatalf("GSO max size was not modified")
-	}
-}
-
-func TestLinkSetGSOMaxSegs(t *testing.T) {
-	minKernelRequired(t, 5, 19)
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetGSOMaxSegs(link, 16)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().GSOMaxSegs != 16 {
-		t.Fatalf("GSO max segments was not modified")
-	}
-}
-
-func TestLinkSetGROMaxSize(t *testing.T) {
-	minKernelRequired(t, 5, 19)
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetGROMaxSize(link, 32768)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().GROMaxSize != 32768 {
-		t.Fatalf("GRO max size was not modified")
-	}
-}
-
-func TestLinkGetTSOMax(t *testing.T) {
-	minKernelRequired(t, 5, 19)
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().TSOMaxSize != 524280 || link.Attrs().TSOMaxSegs != 65535 {
-		t.Fatalf("TSO max size and segments could not be retrieved")
-	}
-}
-
-func TestLinkSetGSOIPv4MaxSize(t *testing.T) {
-	minKernelRequired(t, 6, 3)
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetGSOIPv4MaxSize(link, 32768)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().GSOIPv4MaxSize != 32768 {
-		t.Fatalf("GSO max size was not modified")
-	}
-}
-
-func TestLinkSetGROIPv4MaxSize(t *testing.T) {
-	minKernelRequired(t, 6, 3)
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo", TxQLen: testTxQLen, MTU: 1500}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetGROIPv4MaxSize(link, 32768)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().GROIPv4MaxSize != 32768 {
-		t.Fatalf("GRO max size was not modified")
-	}
-}
-
 func TestBridgeCreationWithMulticastSnooping(t *testing.T) {
 	minKernelRequired(t, 4, 4)
 
@@ -2595,34 +2007,6 @@ func TestBridgeCreationWithMulticastSnooping(t *testing.T) {
 	}
 }
 
-func TestBridgeSetMcastSnoop(t *testing.T) {
-	minKernelRequired(t, 4, 4)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	bridgeName := "foo"
-	bridge := &Bridge{LinkAttrs: LinkAttrs{Name: bridgeName}}
-	if err := LinkAdd(bridge); err != nil {
-		t.Fatal(err)
-	}
-	expectMcastSnooping(t, bridgeName, true)
-
-	if err := BridgeSetMcastSnoop(bridge, false); err != nil {
-		t.Fatal(err)
-	}
-	expectMcastSnooping(t, bridgeName, false)
-
-	if err := BridgeSetMcastSnoop(bridge, true); err != nil {
-		t.Fatal(err)
-	}
-	expectMcastSnooping(t, bridgeName, true)
-
-	if err := LinkDel(bridge); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func expectMcastSnooping(t *testing.T, linkName string, expected bool) {
 	bridge, err := LinkByName(linkName)
 	if err != nil {
@@ -2631,62 +2015,6 @@ func expectMcastSnooping(t *testing.T, linkName string, expected bool) {
 
 	if actual := *bridge.(*Bridge).MulticastSnooping; actual != expected {
 		t.Fatalf("expected %t got %t", expected, actual)
-	}
-}
-
-func TestBridgeSetVlanFiltering(t *testing.T) {
-	minKernelRequired(t, 4, 4)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	bridgeName := "foo"
-	bridge := &Bridge{LinkAttrs: LinkAttrs{Name: bridgeName}}
-	if err := LinkAdd(bridge); err != nil {
-		t.Fatal(err)
-	}
-	expectVlanFiltering(t, bridgeName, false)
-
-	if err := BridgeSetVlanFiltering(bridge, true); err != nil {
-		t.Fatal(err)
-	}
-	expectVlanFiltering(t, bridgeName, true)
-
-	if err := BridgeSetVlanFiltering(bridge, false); err != nil {
-		t.Fatal(err)
-	}
-	expectVlanFiltering(t, bridgeName, false)
-
-	if err := LinkDel(bridge); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestBridgeDefaultPVID(t *testing.T) {
-	minKernelRequired(t, 4, 4)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	bridgeName := "foo"
-	bridge := &Bridge{LinkAttrs: LinkAttrs{Name: bridgeName}}
-	if err := LinkAdd(bridge); err != nil {
-		t.Fatal(err)
-	}
-	expectVlanDefaultPVID(t, bridgeName, 1)
-
-	if err := BridgeSetVlanDefaultPVID(bridge, 100); err != nil {
-		t.Fatal(err)
-	}
-	expectVlanDefaultPVID(t, bridgeName, 100)
-
-	if err := BridgeSetVlanDefaultPVID(bridge, 0); err != nil {
-		t.Fatal(err)
-	}
-	expectVlanDefaultPVID(t, bridgeName, 0)
-
-	if err := LinkDel(bridge); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -2850,58 +2178,6 @@ func TestBridgeCreationWithVlanFiltering(t *testing.T) {
 	}
 }
 
-func TestLinkSubscribeWithProtinfo(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	master := &Bridge{LinkAttrs: LinkAttrs{Name: "foo"}}
-	if err := LinkAdd(master); err != nil {
-		t.Fatal(err)
-	}
-
-	slave := &Veth{
-		LinkAttrs: LinkAttrs{
-			Name:        "bar",
-			TxQLen:      testTxQLen,
-			MTU:         1400,
-			MasterIndex: master.Attrs().Index,
-		},
-		PeerName: "bar-peer",
-	}
-	if err := LinkAdd(slave); err != nil {
-		t.Fatal(err)
-	}
-
-	ch := make(chan LinkUpdate)
-	done := make(chan struct{})
-	defer close(done)
-	if err := LinkSubscribe(ch, done); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetHairpin(slave, true); err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case update := <-ch:
-		if !(update.Attrs().Name == "bar" && update.Attrs().Protinfo != nil &&
-			update.Attrs().Protinfo.Hairpin) {
-			t.Fatal("Hairpin update not received as expected")
-		}
-	case <-time.After(time.Minute):
-		t.Fatal("Hairpin update timed out")
-	}
-
-	if err := LinkDel(slave); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkDel(master); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func testGTPLink(t *testing.T) *GTP {
 	conn1, err := net.ListenUDP("udp", &net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
@@ -2972,87 +2248,6 @@ func TestLinkByNameWhenLinkIsNotFound(t *testing.T) {
 	}
 }
 
-func TestLinkByAliasWhenLinkIsNotFound(t *testing.T) {
-	_, err := LinkByAlias("iammissing")
-	if err == nil {
-		t.Fatal("Link not expected to found")
-	}
-
-	_, ok := err.(LinkNotFoundError)
-	if !ok {
-		t.Errorf("Error returned expected to of LinkNotFoundError type: %v", err)
-	}
-}
-
-func TestLinkAddDelTuntap(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	// Mount sysfs so that sysfs gets the namespace tag of the current network namespace
-	// This is necessary so that /sys shows the network interfaces of the current namespace.
-	if err := syscall.Mount("sysfs", "/sys", "sysfs", syscall.MS_RDONLY, ""); err != nil {
-		t.Fatal("Cannot mount sysfs")
-	}
-
-	defer func() {
-		if err := syscall.Unmount("/sys", 0); err != nil {
-			t.Fatal("Cannot umount /sys")
-		}
-	}()
-
-	testLinkAddDel(t, &Tuntap{
-		LinkAttrs: LinkAttrs{Name: "foo"},
-		Mode:      TUNTAP_MODE_TAP})
-}
-
-func TestLinkAddDelTuntapMq(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	if err := syscall.Mount("sysfs", "/sys", "sysfs", syscall.MS_RDONLY, ""); err != nil {
-		t.Fatal("Cannot mount sysfs")
-	}
-
-	defer func() {
-		if err := syscall.Unmount("/sys", 0); err != nil {
-			t.Fatal("Cannot umount /sys")
-		}
-	}()
-
-	testLinkAddDel(t, &Tuntap{
-		LinkAttrs: LinkAttrs{Name: "foo"},
-		Mode:      TUNTAP_MODE_TAP,
-		Queues:    4})
-
-	testLinkAddDel(t, &Tuntap{
-		LinkAttrs: LinkAttrs{Name: "foo"},
-		Mode:      TUNTAP_MODE_TAP,
-		Queues:    4,
-		Flags:     TUNTAP_MULTI_QUEUE_DEFAULTS | TUNTAP_VNET_HDR})
-}
-
-func TestLinkAddDelTuntapOwnerGroup(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	if err := syscall.Mount("sysfs", "/sys", "sysfs", syscall.MS_RDONLY, ""); err != nil {
-		t.Fatal("Cannot mount sysfs")
-	}
-
-	defer func() {
-		if err := syscall.Unmount("/sys", 0); err != nil {
-			t.Fatal("Cannot umount /sys")
-		}
-	}()
-
-	testLinkAddDel(t, &Tuntap{
-		LinkAttrs: LinkAttrs{Name: "foo"},
-		Mode:      TUNTAP_MODE_TAP,
-		Owner:     0,
-		Group:     0,
-	})
-}
-
 func TestVethPeerIndex(t *testing.T) {
 	tearDown := setUpNetlinkTest(t)
 	defer tearDown()
@@ -3104,426 +2299,3 @@ func TestVethPeerIndex(t *testing.T) {
 	}
 }
 
-func TestLinkSlaveBond(t *testing.T) {
-	minKernelRequired(t, 3, 13)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	const (
-		bondName  = "foo"
-		slaveName = "fooFoo"
-	)
-
-	bond := NewLinkBond(LinkAttrs{Name: bondName})
-	bond.Mode = BOND_MODE_BALANCE_RR
-	if err := LinkAdd(bond); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(bond)
-
-	slaveDummy := &Dummy{LinkAttrs{Name: slaveName}}
-	if err := LinkAdd(slaveDummy); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(slaveDummy)
-
-	if err := LinkSetBondSlave(slaveDummy, bond); err != nil {
-		t.Fatal(err)
-	}
-
-	slaveLink, err := LinkByName(slaveName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	slave := slaveLink.Attrs().Slave
-	if slave == nil {
-		t.Errorf("for %s expected slave is not nil.", slaveName)
-	}
-
-	if slaveType := slave.SlaveType(); slaveType != "bond" {
-		t.Errorf("for %s expected slave type is 'bond', but '%s'", slaveName, slaveType)
-	}
-}
-
-func TestLinkSetBondSlaveQueueId(t *testing.T) {
-	minKernelRequired(t, 3, 13)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	const (
-		bondName   = "foo"
-		slave1Name = "fooFoo"
-	)
-
-	bond := NewLinkBond(LinkAttrs{Name: bondName})
-	if err := LinkAdd(bond); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(bond)
-
-	slave := &Dummy{LinkAttrs{Name: slave1Name}}
-	if err := LinkAdd(slave); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(slave)
-
-	if err := LinkSetBondSlave(slave, bond); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := pkgHandle.LinkSetBondSlaveQueueId(slave, 1); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLinkSetBondSlave(t *testing.T) {
-	minKernelRequired(t, 3, 13)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	const (
-		bondName     = "foo"
-		slaveOneName = "fooFoo"
-		slaveTwoName = "fooBar"
-	)
-
-	bond := NewLinkBond(LinkAttrs{Name: bondName})
-	bond.Mode = StringToBondModeMap["802.3ad"]
-	bond.AdSelect = BondAdSelect(BOND_AD_SELECT_BANDWIDTH)
-	bond.AdActorSysPrio = 1
-	bond.AdUserPortKey = 1
-	bond.AdActorSystem, _ = net.ParseMAC("06:aa:bb:cc:dd:ee")
-
-	if err := LinkAdd(bond); err != nil {
-		t.Fatal(err)
-	}
-
-	bondLink, err := LinkByName(bondName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(bondLink)
-
-	if err := LinkAdd(&Dummy{LinkAttrs{Name: slaveOneName}}); err != nil {
-		t.Fatal(err)
-	}
-
-	slaveOneLink, err := LinkByName(slaveOneName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(slaveOneLink)
-
-	if err := LinkAdd(&Dummy{LinkAttrs{Name: slaveTwoName}}); err != nil {
-		t.Fatal(err)
-	}
-	slaveTwoLink, err := LinkByName(slaveTwoName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(slaveTwoLink)
-
-	if err := LinkSetBondSlave(slaveOneLink, &Bond{LinkAttrs: *bondLink.Attrs()}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetBondSlave(slaveTwoLink, &Bond{LinkAttrs: *bondLink.Attrs()}); err != nil {
-		t.Fatal(err)
-	}
-
-	// Update info about interfaces
-	slaveOneLink, err = LinkByName(slaveOneName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	slaveTwoLink, err = LinkByName(slaveTwoName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if slaveOneLink.Attrs().MasterIndex != bondLink.Attrs().Index {
-		t.Errorf("For %s expected %s to be master", slaveOneLink.Attrs().Name, bondLink.Attrs().Name)
-	}
-
-	if slaveTwoLink.Attrs().MasterIndex != bondLink.Attrs().Index {
-		t.Errorf("For %s expected %s to be master", slaveTwoLink.Attrs().Name, bondLink.Attrs().Name)
-	}
-}
-
-func testFailover(t *testing.T, slaveName, bondName string) {
-	slaveLink, err := LinkByName(slaveName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	bondLink, err := LinkByName(bondName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = LinkSetBondSlaveActive(slaveLink, &Bond{LinkAttrs: *bondLink.Attrs()})
-	if err != nil {
-		t.Errorf("set slave link active failed: %v", err)
-		return
-	}
-
-	bondLink, err = LinkByName(bondName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bond := bondLink.(*Bond)
-	if bond.ActiveSlave != slaveLink.Attrs().Index {
-		t.Errorf("the current active slave %d is not expected as %d", bond.ActiveSlave, slaveLink.Attrs().Index)
-	}
-}
-
-func TestLinkFailover(t *testing.T) {
-	minKernelRequired(t, 3, 13)
-
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	const (
-		bondName     = "foo"
-		slaveOneName = "fooFoo"
-		slaveTwoName = "fooBar"
-	)
-
-	bond := NewLinkBond(LinkAttrs{Name: bondName})
-	bond.Mode = StringToBondModeMap["active-backup"]
-	bond.Miimon = 100
-
-	if err := LinkAdd(bond); err != nil {
-		t.Fatal(err)
-	}
-
-	bondLink, err := LinkByName(bondName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(bondLink)
-
-	if err := LinkAdd(&Dummy{LinkAttrs{Name: slaveOneName}}); err != nil {
-		t.Fatal(err)
-	}
-
-	slaveOneLink, err := LinkByName(slaveOneName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(slaveOneLink)
-
-	if err := LinkAdd(&Dummy{LinkAttrs{Name: slaveTwoName}}); err != nil {
-		t.Fatal(err)
-	}
-	slaveTwoLink, err := LinkByName(slaveTwoName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(slaveTwoLink)
-
-	if err := LinkSetBondSlave(slaveOneLink, &Bond{LinkAttrs: *bondLink.Attrs()}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetBondSlave(slaveTwoLink, &Bond{LinkAttrs: *bondLink.Attrs()}); err != nil {
-		t.Fatal(err)
-	}
-
-	testFailover(t, slaveOneName, bondName)
-	testFailover(t, slaveTwoName, bondName)
-	testFailover(t, slaveTwoName, bondName)
-
-	// del slave from bond
-	slaveOneLink, err = LinkByName(slaveOneName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = LinkDelBondSlave(slaveOneLink, &Bond{LinkAttrs: *bondLink.Attrs()})
-	if err != nil {
-		t.Errorf("Remove slave %s from bond failed: %v", slaveOneName, err)
-	}
-	slaveOneLink, err = LinkByName(slaveOneName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if slaveOneLink.Attrs().MasterIndex > 0 {
-		t.Errorf("The nic %s is still a slave of %d", slaveOneName, slaveOneLink.Attrs().MasterIndex)
-	}
-}
-
-func TestLinkSetAllmulticast(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo"}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetUp(link); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetAllmulticastOn(link); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().Allmulti != 1 {
-		t.Fatal("IFF_ALLMULTI was not set")
-	}
-
-	if err := LinkSetAllmulticastOff(link); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().Allmulti != 0 {
-		t.Fatal("IFF_ALLMULTI is still set")
-	}
-}
-
-func TestLinkSetMulticast(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	iface := &Veth{LinkAttrs: LinkAttrs{Name: "foo"}, PeerName: "bar"}
-	if err := LinkAdd(iface); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err := LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetUp(link); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := LinkSetMulticastOn(link); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().Multi != 1 {
-		t.Fatal("IFF_MULTICAST was not set")
-	}
-
-	if err := LinkSetMulticastOff(link); err != nil {
-		t.Fatal(err)
-	}
-
-	link, err = LinkByName("foo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if link.Attrs().Multi != 0 {
-		t.Fatal("IFF_MULTICAST is still set")
-	}
-}
-
-func TestLinkSetMacvlanMode(t *testing.T) {
-	tearDown := setUpNetlinkTest(t)
-	defer tearDown()
-
-	const (
-		parentName  = "foo"
-		macvlanName = "fooFoo"
-		macvtapName = "fooBar"
-	)
-
-	parent := &Dummy{LinkAttrs{Name: parentName}}
-	if err := LinkAdd(parent); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(parent)
-
-	testMacvlanMode := func(link Link, mode MacvlanMode) {
-		if err := LinkSetMacvlanMode(link, mode); err != nil {
-			t.Fatal(err)
-		}
-
-		name := link.Attrs().Name
-		result, err := LinkByName(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		var actual MacvlanMode
-		switch l := result.(type) {
-		case *Macvlan:
-			actual = l.Mode
-		case *Macvtap:
-			actual = l.Macvlan.Mode
-		}
-
-		if actual != mode {
-			t.Fatalf("expected %v got %v for %+v", mode, actual, link)
-		}
-	}
-
-	macvlan := &Macvlan{
-		LinkAttrs: LinkAttrs{Name: macvlanName, ParentIndex: parent.Attrs().Index},
-		Mode:      MACVLAN_MODE_BRIDGE,
-	}
-	if err := LinkAdd(macvlan); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(macvlan)
-
-	testMacvlanMode(macvlan, MACVLAN_MODE_VEPA)
-	testMacvlanMode(macvlan, MACVLAN_MODE_PRIVATE)
-	testMacvlanMode(macvlan, MACVLAN_MODE_SOURCE)
-	testMacvlanMode(macvlan, MACVLAN_MODE_BRIDGE)
-
-	macvtap := &Macvtap{
-		Macvlan: Macvlan{
-			LinkAttrs: LinkAttrs{Name: macvtapName, ParentIndex: parent.Attrs().Index},
-			Mode:      MACVLAN_MODE_BRIDGE,
-		},
-	}
-	if err := LinkAdd(macvtap); err != nil {
-		t.Fatal(err)
-	}
-	defer LinkDel(macvtap)
-
-	testMacvlanMode(macvtap, MACVLAN_MODE_VEPA)
-	testMacvlanMode(macvtap, MACVLAN_MODE_PRIVATE)
-	testMacvlanMode(macvtap, MACVLAN_MODE_SOURCE)
-	testMacvlanMode(macvtap, MACVLAN_MODE_BRIDGE)
-}
