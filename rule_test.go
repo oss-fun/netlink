@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/oss-fun/netlink/nlunix"
 )
 
 func TestRuleAddDel(t *testing.T) {
@@ -24,7 +26,7 @@ func TestRuleAddDel(t *testing.T) {
 
 	rule := NewRule()
 	rule.Family = FAMILY_V4
-	rule.Table = unix.RT_TABLE_MAIN
+	rule.Table = nlunix.RT_TABLE_MAIN
 	rule.Src = srcNet
 	rule.Dst = dstNet
 	rule.Priority = 5
@@ -36,7 +38,7 @@ func TestRuleAddDel(t *testing.T) {
 	rule.Sport = NewRulePortRange(1000, 1024)
 	rule.IPProto = unix.IPPROTO_UDP
 	rule.UIDRange = NewRuleUIDRange(100, 100)
-	rule.Protocol = unix.RTPROT_KERNEL
+	rule.Protocol = nlunix.RTPROT_KERNEL
 	if err := RuleAdd(rule); err != nil {
 		t.Fatal(err)
 	}

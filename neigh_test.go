@@ -4,12 +4,10 @@ package netlink
 
 import (
 	"net"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/oss-fun/vnet"
-	"golang.org/x/sys/unix"
 
 	"github.com/oss-fun/netlink/nlunix"
 )

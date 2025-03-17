@@ -8,15 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"os/exec"
-	"sort"
-	"strings"
-	"syscall"
 	"testing"
 	"time"
 
-	"github.com/oss-fun/netlink/nl"
 	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
 )

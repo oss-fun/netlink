@@ -5,9 +5,7 @@ package netlink
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"io"
-	"net"
 	"sync"
 	"sync/atomic"
 	"testing"

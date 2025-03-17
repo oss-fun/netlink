@@ -94,6 +94,8 @@ const (
 	RTA_UID            = 0x19 // not supported
 	RTN_UNSPEC         = 0x0
 	RTN_UNICAST        = 0x1
+	RTN_BLACKHOLE      = 0x6
+	RTN_PROHIBIT       = 0x8
 	SizeofNlMsghdr     = 0x10
 	SizeofRtAttr       = 0x4
 	SizeofIfInfomsg    = 0x10
