@@ -40,7 +40,8 @@ type RawSockaddrDatalink struct {
 }
 
 type RawSockaddr struct {
-	Family uint16
+	Len    uint8
+	Family uint8
 	Data   [14]int8
 }
 
