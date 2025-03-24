@@ -54,7 +54,7 @@ type _Socklen uint32
 const (
 	SizeofSockaddrInet4    = 0x10
 	SizeofSockaddrInet6    = 0x1c
-	SizeofSockaddrAny      = 0x70
+	SizeofSockaddrAny      = 0x6c
 	SizeofSockaddrUnix     = 0x6a
 	SizeofSockaddrDatalink = 0x36
 	SizeofSockaddrNetlink  = 0xc
