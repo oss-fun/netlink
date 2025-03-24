@@ -24,7 +24,7 @@ func (sa *SockaddrDatalink) sockaddr() (unsafe.Pointer, _Socklen, error) {
 
 func anyToSockaddr(fd int, rsa *RawSockaddrAny) (Sockaddr, error) {
 	switch rsa.Addr.Family {
-	case unix.AF_LINK:
+	case unix.AF_LINK, AF_NETLINK:
 		pp := (*RawSockaddrDatalink)(unsafe.Pointer(rsa))
 		sa := new(SockaddrDatalink)
 		sa.Len = pp.Len
