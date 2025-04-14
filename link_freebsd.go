@@ -166,19 +166,32 @@ func LinkSetName(link Link, name string) error {
 // LinkSetName sets the name of the link device.
 // Equivalent to: `ip link set $link name $name`
 func (h *Handle) LinkSetName(link Link, name string) error {
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
+
 	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], base.Name)
+	
+	//newName := byte(name)
+	newName := append([]byte(name), 0)
+	ifr.Data = uintptr(unsafe.Pointer(&newName[0]))
 
-	data := nl.NewRtAttr(nlunix.IFLA_IFNAME, []byte(name))
-	req.AddData(data)
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFNAME),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
 
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	if errno != 0 {
+		return fmt.Errorf("ioctl failed: %v.\n", errno)
+	}
+	return nil
 }
 
 // LinkSetMasterByIndex sets the master of the link device.
@@ -434,7 +447,26 @@ func LinkAdd(link Link) error {
 // are taken from the parameters in the link object.
 // Equivalent to: `ip link add $link`
 func (h *Handle) LinkAdd(link Link) error {
-	return h.linkModify(link, nlunix.NLM_F_CREATE|nlunix.NLM_F_EXCL|nlunix.NLM_F_ACK)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
+
+	var ifr Ifreq
+	copy(ifr.Name[:], "epair")
+	
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCIFCREATE2),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+
+	if errno != 0 {
+		return fmt.Errorf("LinkAdd failed: ioctl failed: %v.\n", errno)
+	}
+	return nil
 }
 
 func LinkModify(link Link) error {
