@@ -447,26 +447,73 @@ func LinkAdd(link Link) error {
 // are taken from the parameters in the link object.
 // Equivalent to: `ip link add $link`
 func (h *Handle) LinkAdd(link Link) error {
-	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
-	if err != nil {
-		return fmt.Errorf("socket failed: %v.\n", err)
-	}
-	defer unix.Close(fd)
+	switch l := link.(type) {
+	case *Veth:
+		/* ioctl用のソケット作成 */
+		fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+		if err != nil {
+			return fmt.Errorf("socket failed: %v.\n", err)
+		}
+		defer unix.Close(fd)
 
-	var ifr Ifreq
-	copy(ifr.Name[:], "epair")
+		/* epairの作成指示 */
+		var ifr Ifreq
+		copy(ifr.Name[:], "epair")
+
+		_, _, errno := unix.Syscall(
+			unix.SYS_IOCTL,
+			uintptr(fd),
+			uintptr(unix.SIOCIFCREATE2),
+			uintptr(unsafe.Pointer(&ifr)),
+		)
+
+		if errno != 0 {
+			return fmt.Errorf("ioctl failed: %v.\n", errno)
+		}
 	
-	_, _, errno := unix.Syscall(
-		unix.SYS_IOCTL,
-		uintptr(fd),
-		uintptr(unix.SIOCIFCREATE2),
-		uintptr(unsafe.Pointer(&ifr)),
-	)
+		/* 作成したepair名を取得 */
+		oldA := ifr.Name[:]
+		nullIndex := len(oldA)
+		for i, b := range oldA {
+			if b == 0 {
+				nullIndex = i
+				break
+			}
+		}
+		oldB, err := atob(oldA[:nullIndex])
+		if err != nil {
+			return fmt.Errorf("atob error: %v.\n", err)
+		}
 
-	if errno != 0 {
-		return fmt.Errorf("LinkAdd failed: ioctl failed: %v.\n", errno)
+		/* 作成したepairの構造体を取得 */
+		oldLinkA, err := LinkByName(string(oldA))
+		if err != nil {
+			return fmt.Errorf("LinkByName(A) error: %v.\n", err)
+		}
+		oldLinkB, err := LinkByName(string(oldB))
+		if err != nil {
+			return fmt.Errorf("LinkByName(B) error: %v.\n", err)
+		}
+
+		/* 作成したいepair名を取得 */
+		newA := []byte(l.Attrs().Name)
+		newA = append(newA, 0)
+		newB := []byte(l.PeerName)
+		newB = append(newB, 0)
+
+		/* リネーム */
+		if err = LinkSetName(oldLinkA, string(newA)); err != nil {
+			return fmt.Errorf("LinkSetName(A) error: %v.\n", err)
+		}
+		if err = LinkSetName(oldLinkB, string(newB)); err != nil {
+			return fmt.Errorf("LinkSetName(B) error: %v.\n", err)
+		}
+
+		return nil
+
+	default:
+		return fmt.Errorf("failed type.")
 	}
-	return nil
 }
 
 func LinkModify(link Link) error {
