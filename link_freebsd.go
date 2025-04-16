@@ -94,18 +94,40 @@ func LinkSetUp(link Link) error {
 // LinkSetUp enables the link device.
 // Equivalent to: `ip link set $link up`
 func (h *Handle) LinkSetUp(link Link) error {
-	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_NEWLINK, nlunix.NLM_F_ACK)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket error: %v", err)
+	}
+	defer unix.Close(fd)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Change = unix.IFF_UP
-	msg.Flags = unix.IFF_UP
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
 
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCGIFFLAGS),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCGIFFLAGS error: %v", err)
+	}
+
+	flags := *(*uint16)(unsafe.Pointer(&ifr.Data))
+	flags |= unix.IFF_UP
+	*(*uint16)(unsafe.Pointer(&ifr.Data)) = flags
+
+	_, _, errno = unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFFLAGS),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFFLAGS error: %v", errno)
+	}
+
+	return nil
 }
 
 // LinkSetDown disables link device.
