@@ -176,7 +176,7 @@ func (h *Handle) LinkSetName(link Link, name string) error {
 
 	var ifr Ifreq
 	copy(ifr.Name[:], base.Name)
-	
+
 	//newName := byte(name)
 	newName := append([]byte(name), 0)
 	ifr.Data = uintptr(unsafe.Pointer(&newName[0]))
@@ -928,18 +928,28 @@ func LinkDel(link Link) error {
 // the link object for it to be deleted. The other values are ignored.
 // Equivalent to: `ip link del $link`
 func (h *Handle) LinkDel(link Link) error {
-	base := link.Attrs()
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		fmt.Printf("Error: %v.\n", err)
+		os.Exit(1)
+	}
+	defer unix.Close(fd)
 
-	h.ensureIndex(base)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
 
-	req := h.newNetlinkRequest(nlunix.RTM_DELLINK, nlunix.NLM_F_ACK)
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCIFDESTROY),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		fmt.Printf("ioctl error: %v.\n", errno)
+		os.Exit(1)
+	}
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
-
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	return nil
 }
 
 func (h *Handle) linkByNameDump(name string) (Link, error) {
