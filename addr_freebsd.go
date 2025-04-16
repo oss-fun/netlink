@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"unsafe"
 
 	"github.com/oss-fun/netlink/nl"
 	"golang.org/x/sys/unix"
@@ -28,8 +29,53 @@ func AddrAdd(link Link, addr *Addr) error {
 // If `addr` is an IPv4 address and the broadcast address is not given, it
 // will be automatically computed based on the IP mask if /30 or larger.
 func (h *Handle) AddrAdd(link Link, addr *Addr) error {
-	req := h.newNetlinkRequest(unix.RTM_NEWADDR, nlunix.NLM_F_CREATE|nlunix.NLM_F_EXCL|nlunix.NLM_F_ACK)
-	return h.addrHandle(link, addr, req)
+	/* ioctl用ソケットを作成 */
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("Socket error: %v", err)
+	}
+	defer unix.Close(fd)
+
+	/* アドレス指定用構造体を作成 */
+	var ifra Ifaliasreq
+	copy(ifra.ifra_name[:], link.Attrs().Name)
+
+	iaddr, err := ipToSockaddrIn(addr.IP)
+	if err != nil {
+		return fmt.Errorf("ipToSockaddrIn error: %v", err)
+	}
+	imask, err := ipToSockaddrIn(net.IP(addr.Mask))
+	if err != nil {
+		return fmt.Errorf("ipToSockaddrIn error: %v", err)
+	}
+
+	ifra.ifra_addr = iaddr
+	ifra.ifra_mask = imask
+
+	/* ioctl syscall */
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCAIFADDR),
+		uintptr(unsafe.Pointer(&ifra)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl error: %v", errno)
+	}
+
+	return nil
+}
+
+func ipToSockaddrIn(ip net.IP) (SockaddrIn, error) {
+        ip4 := ip.To4()
+        if ip4 == nil {
+		return SockaddrIn{}, fmt.Errorf("ip.To4() error: %v", ip)
+        }
+        var sa SockaddrIn
+        sa.Len = uint8(unsafe.Sizeof(sa))
+        sa.Family = unix.AF_INET
+        copy(sa.Addr[:], ip4)
+        return sa, nil
 }
 
 // AddrDel will delete an IP address from a link device.
