@@ -161,22 +161,27 @@ func LinkSetMTU(link Link, mtu int) error {
 // LinkSetMTU sets the mtu of the link device.
 // Equivalent to: `ip link set $link mtu $mtu`
 func (h *Handle) LinkSetMTU(link Link, mtu int) error {
-	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
+	*(*uint32)(unsafe.Pointer(&ifr.Data)) = uint32(mtu)
 
-	b := make([]byte, 4)
-	native.PutUint32(b, uint32(mtu))
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFMTU),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFMTU error: %v", errno)
+	}
 
-	data := nl.NewRtAttr(nlunix.IFLA_MTU, b)
-	req.AddData(data)
-
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	return nil
 }
 
 // LinkSetName sets the name of the link device.
