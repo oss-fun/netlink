@@ -258,23 +258,28 @@ func LinkSetNsFd(link Link, fd int) error {
 // LinkSetNsFd puts the device into a new network namespace. The
 // fd must be an open file descriptor to a network namespace.
 // Similar to: `ip link set $link netns $ns`
-func (h *Handle) LinkSetNsFd(link Link, fd int) error {
-	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
+func (h *Handle) LinkSetNsFd(link Link, jid int) error {
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket error: %v", err)
+	}
+	defer unix.Close(fd)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
 
-	b := make([]byte, 4)
-	native.PutUint32(b, uint32(fd))
+	*(*uint32)(unsafe.Pointer(&ifr.Data)) = uint32(jid)
 
-	data := nl.NewRtAttr(nlunix.IFLA_NET_NS_FD, b)
-	req.AddData(data)
-
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFVNET),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFVNET error: %v", errno)
+	}
+	return nil
 }
 
 func boolAttr(val bool) []byte {
