@@ -35,10 +35,19 @@ const (
 	ETH_SS_RSS_HASH_FUNCS
 )
 
+const (
+	ETHER_ADDR_LEN = 6
+)
+
 // Ifreq is a struct for ioctl ethernet manipulation syscalls.
 type Ifreq struct {
 	Name [unix.IFNAMSIZ]byte
 	Data uintptr
+}
+
+type IfreqWithSockaddr struct {
+	Name [unix.IFNAMSIZ]byte
+	Data unix.RawSockaddr
 }
 
 type SockaddrIn struct {

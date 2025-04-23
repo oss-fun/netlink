@@ -221,6 +221,50 @@ func (h *Handle) LinkSetName(link Link, name string) error {
 	return nil
 }
 
+// LinkSetHardwareAddr sets the hardware address of the link device.
+// Equivalent to: `ip link set $link address $hwaddr`
+func LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
+	return pkgHandle.LinkSetHardwareAddr(link, hwaddr)
+}
+
+// LinkSetHardwareAddr sets the hardware address of the link device.
+// Equivalent to: `ip link set $link address $hwaddr`
+func (h *Handle) LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
+
+	var ifrws IfreqWithSockaddr
+	copy(ifrws.Name[:], link.Attrs().Name)
+
+	ifrws.Data.Len    = ETHER_ADDR_LEN
+	ifrws.Data.Family = unix.AF_LINK
+	copy(ifrws.Data.Data[:], byteToInt(hwaddr))
+
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFLLADDR),
+		uintptr(unsafe.Pointer(&ifrws)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFLLADDR error: %v", errno)
+	}
+
+	return nil
+}
+
+func byteToInt(b []byte) []int8 {
+	result := make([]int8, len(b))
+	for i, v := range b {
+		result[i] = int8(v)
+	}
+	return result
+}
+
+
 // LinkSetMasterByIndex sets the master of the link device.
 // Equivalent to: `ip link set $link master $master`
 func LinkSetMasterByIndex(link Link, masterIndex int) error {
