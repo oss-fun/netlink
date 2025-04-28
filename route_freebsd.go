@@ -12,6 +12,7 @@ import (
 	"github.com/oss-fun/netlink/nl"
 	"github.com/oss-fun/vnet"
 	"golang.org/x/sys/unix"
+	netroute "golang.org/x/net/route"
 
 	"github.com/oss-fun/netlink/nlunix"
 	"github.com/oss-fun/netlink/nlsyscall"
@@ -634,13 +635,86 @@ func RouteList(link Link, family int) ([]Route, error) {
 // Equivalent to: `ip route show`.
 // The list can be filtered by link and ip family.
 func (h *Handle) RouteList(link Link, family int) ([]Route, error) {
-	routeFilter := &Route{}
-	if link != nil {
-		routeFilter.LinkIndex = link.Attrs().Index
-
-		return h.RouteListFiltered(family, routeFilter, RT_FILTER_OIF)
+	// RIBTyoeRouteでルーティング情報を取得
+	rib, err := netroute.FetchRIB(0, netroute.RIBTypeRoute, 0)
+	if err != nil {
+		return nil, err
 	}
-	return h.RouteListFiltered(family, routeFilter, 0)
+
+	// パース
+	msgs, err := netroute.ParseRIB(netroute.RIBTypeRoute, rib)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []Route
+
+	for _, m := range msgs {
+		rtm, is_rtm := m.(*netroute.RouteMessage)
+		if !is_rtm {
+			continue
+		}
+		if rtm.Addrs[0].Family() != unix.AF_INET {
+			continue
+		}
+		if rtm.Err != nil {
+			return nil, fmt.Errorf("rtm.Err: %v", rtm.Err)
+		}
+
+		var dst, gt net.IP
+		var mask net.IPMask
+		var rt Route
+
+		for i, addr := range rtm.Addrs {
+			if addr == nil {
+				continue
+			}
+			switch a := addr.(type) {
+			case *netroute.Inet4Addr:
+				switch i {
+				case 0: // destination
+					dst = net.IPv4(a.IP[0], a.IP[1], a.IP[2], a.IP[3])
+				case 1: // gateway
+					gt = net.IPv4(a.IP[0], a.IP[1], a.IP[2], a.IP[3])
+					rt.Gw = gt
+				case 2: // netmask
+					mask = net.IPv4Mask(a.IP[0], a.IP[1], a.IP[2], a.IP[3])
+				}
+			}
+		}
+
+		if dst != nil && mask != nil {
+			d := net.IPNet {
+				IP  : dst,
+				Mask: mask,
+			}
+			rt.Dst = &d
+		}
+
+		rt.Type = rtm.Type
+		rt.Family = unix.AF_INET
+		rt.Flags = rtm.Flags
+		rt.LinkIndex = rtm.Index
+
+		ln, err := LinkByIndex(rt.LinkIndex)
+		if err != nil {
+			return nil, err
+		}
+		al, err := AddrList(ln, unix.AF_INET)
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range al {
+			if a.LinkIndex == rt.LinkIndex {
+				rt.Src = a.IP
+				break;
+			}
+		}
+
+		result = append(result, rt)
+	}
+	
+	return result, nil
 }
 
 // RouteListFiltered gets a list of routes in the system filtered with specified rules.
