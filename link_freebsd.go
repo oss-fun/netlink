@@ -542,7 +542,6 @@ func (h *Handle) LinkAdd(link Link) error {
 			uintptr(unix.SIOCIFCREATE2),
 			uintptr(unsafe.Pointer(&ifr)),
 		)
-
 		if errno != 0 {
 			return fmt.Errorf("ioctl failed: %v.\n", errno)
 		}
@@ -583,6 +582,48 @@ func (h *Handle) LinkAdd(link Link) error {
 		}
 		if err = LinkSetName(oldLinkB, string(newB)); err != nil {
 			return fmt.Errorf("LinkSetName(B) error: %v.\n", err)
+		}
+
+		return nil
+
+	case *Bridge: 
+		/* ioctl用のソケット作成 */
+		fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+		if err != nil {
+			return fmt.Errorf("socket failed: %v.\n", err)
+		}
+		defer unix.Close(fd)
+
+		/* bridgeの作成指示 */
+		var ifr Ifreq
+		copy(ifr.Name[:], "bridge")
+
+		_, _, errno := unix.Syscall(
+			unix.SYS_IOCTL,
+			uintptr(fd),
+			uintptr(unix.SIOCIFCREATE2),
+			uintptr(unsafe.Pointer(&ifr)),
+		)
+		if errno != 0 {
+			return fmt.Errorf("ioctl failed: %v.\n", errno)
+		}
+
+		/* 作成したbridge名を取得 */
+		name := ifr.Name[:]
+
+		/* 作成したbridgeの構造体を取得 */
+		bLink, err := LinkByName(string(name))
+		if err != nil {
+			return fmt.Errorf("LinkByName() error: %v.\n", err)
+		}
+
+		/* 作成したいbrdige名を取得 */
+		newName := []byte(l.Attrs().Name)
+		newName = append(newName, 0)
+
+		/* リネーム */
+		if err = LinkSetName(bLink, string(newName)); err != nil {
+			return fmt.Errorf("LinkSetName() error: %v.\n", err)
 		}
 
 		return nil
