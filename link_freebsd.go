@@ -94,18 +94,40 @@ func LinkSetUp(link Link) error {
 // LinkSetUp enables the link device.
 // Equivalent to: `ip link set $link up`
 func (h *Handle) LinkSetUp(link Link) error {
-	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_NEWLINK, nlunix.NLM_F_ACK)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket error: %v", err)
+	}
+	defer unix.Close(fd)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Change = unix.IFF_UP
-	msg.Flags = unix.IFF_UP
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
 
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCGIFFLAGS),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCGIFFLAGS error: %v", err)
+	}
+
+	flags := *(*uint16)(unsafe.Pointer(&ifr.Data))
+	flags |= unix.IFF_UP
+	*(*uint16)(unsafe.Pointer(&ifr.Data)) = flags
+
+	_, _, errno = unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFFLAGS),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFFLAGS error: %v", errno)
+	}
+
+	return nil
 }
 
 // LinkSetDown disables link device.
@@ -139,22 +161,27 @@ func LinkSetMTU(link Link, mtu int) error {
 // LinkSetMTU sets the mtu of the link device.
 // Equivalent to: `ip link set $link mtu $mtu`
 func (h *Handle) LinkSetMTU(link Link, mtu int) error {
-	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
+	*(*uint32)(unsafe.Pointer(&ifr.Data)) = uint32(mtu)
 
-	b := make([]byte, 4)
-	native.PutUint32(b, uint32(mtu))
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFMTU),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFMTU error: %v", errno)
+	}
 
-	data := nl.NewRtAttr(nlunix.IFLA_MTU, b)
-	req.AddData(data)
-
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	return nil
 }
 
 // LinkSetName sets the name of the link device.
@@ -166,20 +193,77 @@ func LinkSetName(link Link, name string) error {
 // LinkSetName sets the name of the link device.
 // Equivalent to: `ip link set $link name $name`
 func (h *Handle) LinkSetName(link Link, name string) error {
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
+
 	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], base.Name)
 
-	data := nl.NewRtAttr(nlunix.IFLA_IFNAME, []byte(name))
-	req.AddData(data)
+	//newName := byte(name)
+	newName := append([]byte(name), 0)
+	ifr.Data = uintptr(unsafe.Pointer(&newName[0]))
 
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFNAME),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+
+	if errno != 0 {
+		return fmt.Errorf("ioctl failed: %v.\n", errno)
+	}
+	return nil
 }
+
+// LinkSetHardwareAddr sets the hardware address of the link device.
+// Equivalent to: `ip link set $link address $hwaddr`
+func LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
+	return pkgHandle.LinkSetHardwareAddr(link, hwaddr)
+}
+
+// LinkSetHardwareAddr sets the hardware address of the link device.
+// Equivalent to: `ip link set $link address $hwaddr`
+func (h *Handle) LinkSetHardwareAddr(link Link, hwaddr net.HardwareAddr) error {
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket failed: %v.\n", err)
+	}
+	defer unix.Close(fd)
+
+	var ifrws IfreqWithSockaddr
+	copy(ifrws.Name[:], link.Attrs().Name)
+
+	ifrws.Data.Len    = ETHER_ADDR_LEN
+	ifrws.Data.Family = unix.AF_LINK
+	copy(ifrws.Data.Data[:], byteToInt(hwaddr))
+
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFLLADDR),
+		uintptr(unsafe.Pointer(&ifrws)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFLLADDR error: %v", errno)
+	}
+
+	return nil
+}
+
+func byteToInt(b []byte) []int8 {
+	result := make([]int8, len(b))
+	for i, v := range b {
+		result[i] = int8(v)
+	}
+	return result
+}
+
 
 // LinkSetMasterByIndex sets the master of the link device.
 // Equivalent to: `ip link set $link master $master`
@@ -218,23 +302,28 @@ func LinkSetNsFd(link Link, fd int) error {
 // LinkSetNsFd puts the device into a new network namespace. The
 // fd must be an open file descriptor to a network namespace.
 // Similar to: `ip link set $link netns $ns`
-func (h *Handle) LinkSetNsFd(link Link, fd int) error {
-	base := link.Attrs()
-	h.ensureIndex(base)
-	req := h.newNetlinkRequest(nlunix.RTM_SETLINK, nlunix.NLM_F_ACK)
+func (h *Handle) LinkSetNsFd(link Link, jid int) error {
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		return fmt.Errorf("socket error: %v", err)
+	}
+	defer unix.Close(fd)
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
 
-	b := make([]byte, 4)
-	native.PutUint32(b, uint32(fd))
+	*(*uint32)(unsafe.Pointer(&ifr.Data)) = uint32(jid)
 
-	data := nl.NewRtAttr(nlunix.IFLA_NET_NS_FD, b)
-	req.AddData(data)
-
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCSIFVNET),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		return fmt.Errorf("ioctl SIOCSIFVNET error: %v", errno)
+	}
+	return nil
 }
 
 func boolAttr(val bool) []byte {
@@ -434,7 +523,128 @@ func LinkAdd(link Link) error {
 // are taken from the parameters in the link object.
 // Equivalent to: `ip link add $link`
 func (h *Handle) LinkAdd(link Link) error {
-	return h.linkModify(link, nlunix.NLM_F_CREATE|nlunix.NLM_F_EXCL|nlunix.NLM_F_ACK)
+	switch l := link.(type) {
+	case *Veth:
+		/* ioctl用のソケット作成 */
+		fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+		if err != nil {
+			return fmt.Errorf("socket failed: %v.\n", err)
+		}
+		defer unix.Close(fd)
+
+		/* epairの作成指示 */
+		var ifr Ifreq
+		copy(ifr.Name[:], "epair")
+
+		_, _, errno := unix.Syscall(
+			unix.SYS_IOCTL,
+			uintptr(fd),
+			uintptr(unix.SIOCIFCREATE2),
+			uintptr(unsafe.Pointer(&ifr)),
+		)
+		if errno != 0 {
+			return fmt.Errorf("ioctl failed: %v.\n", errno)
+		}
+	
+		/* 作成したepair名を取得 */
+		oldA := ifr.Name[:]
+		nullIndex := len(oldA)
+		for i, b := range oldA {
+			if b == 0 {
+				nullIndex = i
+				break
+			}
+		}
+		oldB, err := atob(oldA[:nullIndex])
+		if err != nil {
+			return fmt.Errorf("atob error: %v.\n", err)
+		}
+
+		/* 作成したepairの構造体を取得 */
+		oldLinkA, err := LinkByName(string(oldA))
+		if err != nil {
+			return fmt.Errorf("LinkByName(A) error: %v.\n", err)
+		}
+		oldLinkB, err := LinkByName(string(oldB))
+		if err != nil {
+			return fmt.Errorf("LinkByName(B) error: %v.\n", err)
+		}
+
+		/* 作成したいepair名を取得 */
+		newA := []byte(l.Attrs().Name)
+		newA = append(newA, 0)
+		newB := []byte(l.PeerName)
+		newB = append(newB, 0)
+
+		/* リネーム */
+		if err = LinkSetName(oldLinkA, string(newA)); err != nil {
+			return fmt.Errorf("LinkSetName(A) error: %v.\n", err)
+		}
+		if err = LinkSetName(oldLinkB, string(newB)); err != nil {
+			return fmt.Errorf("LinkSetName(B) error: %v.\n", err)
+		}
+
+		return nil
+
+	case *Bridge: 
+		/* ioctl用のソケット作成 */
+		fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+		if err != nil {
+			return fmt.Errorf("socket failed: %v.\n", err)
+		}
+		defer unix.Close(fd)
+
+		/* bridgeの作成指示 */
+		var ifr Ifreq
+		copy(ifr.Name[:], "bridge")
+
+		_, _, errno := unix.Syscall(
+			unix.SYS_IOCTL,
+			uintptr(fd),
+			uintptr(unix.SIOCIFCREATE2),
+			uintptr(unsafe.Pointer(&ifr)),
+		)
+		if errno != 0 {
+			return fmt.Errorf("ioctl failed: %v.\n", errno)
+		}
+
+		/* 作成したbridge名を取得 */
+		name := ifr.Name[:]
+
+		/* 作成したbridgeの構造体を取得 */
+		bLink, err := LinkByName(string(name))
+		if err != nil {
+			return fmt.Errorf("LinkByName() error: %v.\n", err)
+		}
+
+		/* 作成したいbrdige名を取得 */
+		newName := []byte(l.Attrs().Name)
+		newName = append(newName, 0)
+
+		/* リネーム */
+		if err = LinkSetName(bLink, string(newName)); err != nil {
+			return fmt.Errorf("LinkSetName() error: %v.\n", err)
+		}
+
+		return nil
+
+	default:
+		return fmt.Errorf("failed type.")
+	}
+}
+
+func atob(a []byte) ([]byte, error) {
+	if len(a) < 2 {
+		return nil, fmt.Errorf("invalid interface name: %q", a)
+	}
+	if a[len(a)-1] != 'a' {
+		return nil, fmt.Errorf("interface name does not end with 'a': %q", a)
+	}
+
+	b := make([]byte, len(a))
+	copy(b, a)
+	b[len(b)-1] = 'b'
+	return b, nil
 }
 
 func LinkModify(link Link) error {
@@ -849,18 +1059,28 @@ func LinkDel(link Link) error {
 // the link object for it to be deleted. The other values are ignored.
 // Equivalent to: `ip link del $link`
 func (h *Handle) LinkDel(link Link) error {
-	base := link.Attrs()
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+	if err != nil {
+		fmt.Printf("Error: %v.\n", err)
+		os.Exit(1)
+	}
+	defer unix.Close(fd)
 
-	h.ensureIndex(base)
+	var ifr Ifreq
+	copy(ifr.Name[:], link.Attrs().Name)
 
-	req := h.newNetlinkRequest(nlunix.RTM_DELLINK, nlunix.NLM_F_ACK)
+	_, _, errno := unix.Syscall(
+		unix.SYS_IOCTL,
+		uintptr(fd),
+		uintptr(unix.SIOCIFDESTROY),
+		uintptr(unsafe.Pointer(&ifr)),
+	)
+	if errno != 0 {
+		fmt.Printf("ioctl error: %v.\n", errno)
+		os.Exit(1)
+	}
 
-	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
-	msg.Index = int32(base.Index)
-	req.AddData(msg)
-
-	_, err := req.Execute(nlunix.NETLINK_ROUTE, 0)
-	return err
+	return nil
 }
 
 func (h *Handle) linkByNameDump(name string) (Link, error) {

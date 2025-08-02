@@ -35,10 +35,35 @@ const (
 	ETH_SS_RSS_HASH_FUNCS
 )
 
+const (
+	ETHER_ADDR_LEN = 6
+)
+
 // Ifreq is a struct for ioctl ethernet manipulation syscalls.
 type Ifreq struct {
 	Name [unix.IFNAMSIZ]byte
 	Data uintptr
+}
+
+type IfreqWithSockaddr struct {
+	Name [unix.IFNAMSIZ]byte
+	Data unix.RawSockaddr
+}
+
+type SockaddrIn struct {
+	Len uint8
+	Family uint8
+	Port uint16
+	Addr [4]byte
+	zero [8]byte
+}
+
+type Ifaliasreq struct {
+	ifra_name      [unix.IFNAMSIZ]byte
+	ifra_addr      SockaddrIn
+	ifra_broadaddr SockaddrIn
+	ifra_mask      SockaddrIn
+	ifra_vhid      uint8
 }
 
 // ethtoolSset is a string set information
