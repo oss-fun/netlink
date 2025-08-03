@@ -534,7 +534,7 @@ func (h *Handle) LinkAdd(link Link) error {
 
 		/* epairの作成指示 */
 		var ifr Ifreq
-		copy(ifr.Name[:], "epair")
+		copy(ifr.Name[:], "epair\x00")
 
 		_, _, errno := unix.Syscall(
 			unix.SYS_IOCTL,
@@ -596,7 +596,7 @@ func (h *Handle) LinkAdd(link Link) error {
 
 		/* bridgeの作成指示 */
 		var ifr Ifreq
-		copy(ifr.Name[:], "bridge")
+		copy(ifr.Name[:], "bridge\x00")
 
 		_, _, errno := unix.Syscall(
 			unix.SYS_IOCTL,
