@@ -587,50 +587,98 @@ func (h *Handle) LinkAdd(link Link) error {
 		return nil
 
 	case *Bridge: 
-		/* ioctl用のソケット作成 */
-		fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
+		// TODO: ソケット作成
+		// 多分別口でソケット作ってあるはずだが一旦ここで作成
+		fd, err := unix.Socket(nlunix.AF_NETLINK, unix.SOCK_RAW, nlunix.NETLINK_ROUTE)
 		if err != nil {
 			return fmt.Errorf("socket failed: %v.\n", err)
 		}
 		defer unix.Close(fd)
 
-		/* bridgeの作成指示 */
-		var ifr Ifreq
-		copy(ifr.Name[:], "bridge\x00")
+		buf := new(bytes.Buffer)
+		hdr := nlunix.NlMsghdr {
+			Type:  nlunix.RTM_NEWLINK,
+			Flags: nlunix.NLM_F_REQUEST | nlunix.NLM_F_ACK | nlunix.NLM_F_CREATE,
+		}
+		binary.Write(buf, binary.LittleEndian, hdr)
 
-		_, _, errno := unix.Syscall(
-			unix.SYS_IOCTL,
-			uintptr(fd),
-			uintptr(unix.SIOCIFCREATE2),
-			uintptr(unsafe.Pointer(&ifr)),
-		)
-		if errno != 0 {
-			return fmt.Errorf("ioctl failed: %v.\n", errno)
+		inf := nlunix.IfInfomsg {
+			Family: unix.AF_UNSPEC,
+		}
+		binary.Write(buf, binary.LittleEndian, inf)
+
+		// TODO: 関数ある？
+		// addAttr
+		length := uint16(4 + len([]byte("bri0\x00")))
+	        binary.Write(buf, binary.LittleEndian, nlunix.RtAttr{Len: length, Type: nlunix.IFLA_IFNAME})
+	        buf.Write([]byte("bri0\x00"))
+	        pad := make([]byte, rtaAlignOf(int(length))-int(length))
+        	buf.Write(pad)
+
+		// addAttrNestStart -> addAttrNestEnd
+		start := buf.Len()
+		binary.Write(buf, binary.LittleEndian, nlunix.RtAttr{Len: 4, Type: nlunix.IFLA_LINKINFO})
+
+		length = uint16(4 + len([]byte("bridge\x00")))
+	        binary.Write(buf, binary.LittleEndian, nlunix.RtAttr{Len: length, Type: nlunix.IFLA_IFNAME})
+	        buf.Write([]byte("bridge\x00"))
+	        pad = make([]byte, rtaAlignOf(int(length))-int(length))
+        	buf.Write(pad)
+
+		end := buf.Len()
+		total := uint16(end - start)
+		buf.Bytes()[start+0] = byte(total)
+		buf.Bytes()[start+1] = byte(total >> 8)
+
+		// fix up nlmsg_len
+		msg := buf.Bytes()
+		lengthb := uint32(len(msg))
+		binary.LittleEndian.PutUint32(msg[0:4], lengthb)
+
+		// hexdump
+		fmt.Printf("nlmsg_len = %d\n", length)
+		for i := 0; i < len(msg); i++ {
+			if i%16 == 0 { 
+				fmt.Printf("\n%04x: ", i)
+			}   
+			fmt.Printf("%02x ", msg[i])
+	        }   
+        	fmt.Println()
+
+		sa := &nlunix.SockaddrNetlink{Family: nlunix.AF_NETLINK}
+		if err := nlunix.Sendto(fd, msg, 0, sa); err != nil {
+			fmt.Println("sendto:", err)
+			return err
 		}
 
-		/* 作成したbridge名を取得 */
-		name := ifr.Name[:]
-
-		/* 作成したbridgeの構造体を取得 */
-		bLink, err := LinkByName(string(name))
+		reply := make([]byte, 4096)
+		n, _, err := nlunix.Recvfrom(fd, reply, 0)
 		if err != nil {
-			return fmt.Errorf("LinkByName() error: %v.\n", err)
+			fmt.Println("recv:", err)
+			return err
+		}   
+		fmt.Printf("Received %d bytes\n", n)
+
+		// decode possible error
+		if n >= 20 {
+			nlType := binary.LittleEndian.Uint16(reply[4:6])
+			if nlType == 2 { // NLMSG_ERROR
+				errcode := int32(binary.LittleEndian.Uint32(reply[16:20]))
+				fmt.Printf("Netlink error = %d\n", errcode)
+			}
 		}
-
-		/* 作成したいbrdige名を取得 */
-		newName := []byte(l.Attrs().Name)
-		newName = append(newName, 0)
-
-		/* リネーム */
-		if err = LinkSetName(bLink, string(newName)); err != nil {
-			return fmt.Errorf("LinkSetName() error: %v.\n", err)
-		}
-
 		return nil
 
 	default:
 		return fmt.Errorf("failed type.")
 	}
+}
+
+func nlAlignOf(length int) int {
+	return (length + 3) & ^3
+}
+func rtaAlignOf(length int) int {
+	return (length + 3) & ^3
 }
 
 func atob(a []byte) ([]byte, error) {
